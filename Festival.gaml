@@ -1,6 +1,6 @@
 /**
-* Name: Festival Simulation / Agent based 
-* Author: Federico Ruilova  
+* Name: Festival Simulation
+* Author: Federico Yuyang 
 */
 
 
@@ -80,6 +80,8 @@ global{
  * Guests will dance until they get either thirsty or hungry, then will head to info center 
  * for guidelines on reaching the food and drinks stores
  */
+
+
 
 species guest skills:[moving]
 {
@@ -208,6 +210,16 @@ species guest skills:[moving]
 	 
 	
 }
+
+species RockFan parent: guest
+{
+	aspect default
+	{
+		draw cube(2) at: location color: #black;
+	}
+}
+
+
 
 species building
 {
