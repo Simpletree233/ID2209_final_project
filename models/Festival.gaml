@@ -9,7 +9,7 @@ model Festival
 global{
 		//Configuring the values
 	
-	int guest_num<- 50;
+	int guest_num<- 50;  // • Use at least 50 guests in your simulation.
 	int InfoCenter_num<-1;
 	int Stage_num<-1;
 	int store_num<-2;
