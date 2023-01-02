@@ -20,7 +20,7 @@ global{
 	point guest_Loc <- {80,40};  //Dancing Area next to the stage 
 	point store_Loc <- {30,10};  //Stores with food
 	point water_Loc <- {20,10};  //Stores with water
-	int Stage_sz<- 10;
+	int Stage_sz<- 15;
 	float guestSpeed <- 0.5;
 	
 	//Rate for hungryness or thirstyness
@@ -32,6 +32,12 @@ global{
 		create guest number: guest_num
 		{    location <- guest_Loc;}
 
+		create RockFan number: 5
+		{    location <- guest_Loc;}
+		
+		create Dancer number: 5
+		{    location <- guest_Loc;}
+		
 		create Stores number: store_num
 		{		location <- store_Loc;}
 		
@@ -60,7 +66,7 @@ global{
 
 
 
-species guest skills:[moving]
+species guest skills:[moving,fipa]
 {
 	float I <- rnd(50)+50.0; // Introvert
 	float G <- rnd(50)+50.0; // Generous
@@ -84,7 +90,9 @@ species guest skills:[moving]
 	
 	aspect default
 	{
-		draw sphere(3) at: location color:color;
+		draw sphere(2) at: location color:color;
+		draw name at: location + {1,1} color: #black font: font('Default', 10, #bold);
+		
 	}
 	
 	reflex updatePersonality{
@@ -214,17 +222,30 @@ species guest skills:[moving]
 
 species RockFan parent: guest
 {
+	//bool isRaving <- false;
+	
 	aspect default
 	{
 		draw cube(2) at: location color: #black;
+		draw name at: location + {1,1} color: #black font: font('Default', 10, #bold);
 	}
 
-	reflex inviteToDance when: (Happiness > 70 and (location distance_to(Stage_Loc) < Stage_sz)){
-		ask Dancer at_distance 10
-		{
-			//// TODO: FIPA to ask dancer
-		} 
+	reflex rave when: Happiness > 90{
+		////
+		color <- #limegreen;
+	}
+
+	reflex inviteToDance when: Happiness > 70 and (location distance_to(Stage_Loc) < Stage_sz){
+		//// TODO: FIPA to ask dancer
+		do start_conversation with:(to:: list(Dancer), protocol:: 'fipa-propose', performative:: 'propose', contents:: ['Go dancing?']);
+	}
 	
+	reflex ReadMsg when: (!empty(agrees)){
+		loop msg over: agrees {
+			if (msg.contents[0] = 'Yes!' and thirst>25){
+				Happiness <- 100.0;
+			}
+		}
 	}
 	
 }
@@ -234,15 +255,30 @@ species Dancer parent: guest
 	aspect default
 	{
 		draw cube(2) at: location color: #pink;
+		draw name at: location + {1,1} color: #black font: font('Default', 10, #bold);
 	}
 	
 	reflex Dance when: thirst > 25{
 		////
+		color <- #lime;
 	}
 	
-	reflex RespondToInvitation {  // something like this, I forgot the format
+	reflex rave when: Happiness > 90{
+		////
+		color <- #limegreen;
+	}
+	
+	reflex RespondToInvitation when: (!empty(proposes)) and (location distance_to(Stage_Loc) < Stage_sz){  
 		// TODO:read the FIPA invitation and respond
 		// TODO:enter fever mode and dance
+		loop msg over: proposes {
+			if (msg.contents[0] = 'Go dancing?' and thirst>25){
+				Happiness <- 100.0;
+				do start_conversation with:(to: msg.sender, protocol: 'fipa-propose', performative: 'agree', contents: ['Yes!', 'Dancer']);
+			}
+            
+        }
+        proposes <- [];
 	}
 }
 
@@ -316,7 +352,8 @@ species Stage parent: building
 	
 	aspect default
 	{
-		draw pyramid(6) at: location color: #black;
+		draw pyramid(10) at: location color: #violet;
+		draw "Stage" at:location+{5,5} color:#black;
 	}
 }
 
@@ -330,6 +367,8 @@ experiment main type: gui
 			species Info_Center;
 			species Stores;
 			species guest;
+			species RockFan;
+			species Dancer;
 			species Water;
 			species Stage;
 			
