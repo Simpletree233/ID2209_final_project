@@ -4,7 +4,7 @@
 */
 
 
-model Festival
+model MusicParty
 
 global{
 		//Configuring the values
@@ -29,44 +29,21 @@ global{
 	
 	init
 	{
-		/* Create guest_num (defined above) amount of Guests */
 		create guest number: guest_num
-		{
-	    location <- guest_Loc;
-			
-		}
-		/*
-		 * Number of stores is defined above 
-		 */
+		{    location <- guest_Loc;}
+
 		create Stores number: store_num
-		{
-			location <- store_Loc;
-
-		}
+		{		location <- store_Loc;}
 		
-		/*
-		 * Number of stores id defined above 
-		 */
 		create Water number: water_num
-		{
-			location <- water_Loc;
-
-		}
+		{location <- water_Loc;		}
 		
 		create Info_Center number: InfoCenter_num
-		{
-			location <- InfoCent_Loc;
-		}
+		{location <- InfoCent_Loc;}
 		
-
-
 		create Stage number: Stage_num
-		{
-			location <- Stage_Loc;
-		}
-		
-	
-		
+		{	location <- Stage_Loc;}
+
 		
 			}
 
@@ -85,9 +62,20 @@ global{
 
 species guest skills:[moving]
 {
+	float I <- rnd(50)+50.0; // Introvert
+	float G <- rnd(50)+50.0; // Generous
+	float S <- rnd(50)+50.0; // Selfish
+	float E <- rnd(50)+50.0; // emotional		
+	bool isIntrovert <- false;
+	bool isGenerous <- false;
+	bool isSelfish <- false;
+	bool isEmotional <- false;
+	
+	float Happiness <- rnd(50)+50.0;
+	
 	float thirst<- rnd(50)+50.0;
 	float hunger<- rnd(50)+50.0;	
-	//int guestid<-
+
 	
 	rgb color<- #red;
 	
@@ -99,10 +87,24 @@ species guest skills:[moving]
 		draw sphere(3) at: location color:color;
 	}
 	
+	reflex updatePersonality{
+		// To see if an agent is introverted, generous, selfish, emotional or not...
+		if (I > 80) {isIntrovert <- true;}
+		if (G > 80) {isGenerous <- true;}
+		if (S > 80) {isSelfish <- true;}
+		if (E > 80) {isEmotional <- true;} 
+	}
+	
+	reflex rave when: Happiness > 80{
+		do goto target:one_of(Stage).location speed: guestSpeed;
+		write name + "is raving and going to dance!";
+	}
+	
 	/* 
 	 *  Thirstyness and hungerness 0 and 0.5
 	 * Once value is under  below 25, agent will head towards info/Store
-	 */	
+	 */	 
+	 
 	reflex thirstyHungry{
 		
 		//Decrement thirst and hunger counters
@@ -138,7 +140,6 @@ species guest skills:[moving]
 	} 
 	
 	//Default guest/agent behaviour at festival -- missing stage location 
-	
 	
 	
 	reflex Go_Dancing when: target=nil
@@ -217,8 +218,33 @@ species RockFan parent: guest
 	{
 		draw cube(2) at: location color: #black;
 	}
+
+	reflex inviteToDance when: (Happiness > 70 and (location distance_to(Stage_Loc) < Stage_sz)){
+		ask Dancer at_distance 10
+		{
+			//// TODO: FIPA to ask dancer
+		} 
+	
+	}
+	
 }
 
+species Dancer parent: guest
+{
+	aspect default
+	{
+		draw cube(2) at: location color: #pink;
+	}
+	
+	reflex Dance when: thirst > 25{
+		////
+	}
+	
+	reflex RespondToInvitation {  // something like this, I forgot the format
+		// TODO:read the FIPA invitation and respond
+		// TODO:enter fever mode and dance
+	}
+}
 
 
 species building
