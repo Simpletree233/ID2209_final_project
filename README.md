@@ -1,7 +1,17 @@
 # ID2209_final_project
-final project for ID2209 DAIIA
 
-Program skeleton:
+Project Objective : 
+
+The main goal of this project is to create a simulation to demonstrate the behavior and interactions between different types of agents with distinct behaviors, personal traits, and preferences. 
+
+The simulation involves at least 50 agents, and includes at least two different types of places where the agents can interact. (Stage, Stores, Toilets) . 
+
+The project involves monitoring a global value (such as happiness) and displays this value on a graph to draw conclusions about the impact of different behaviors on the value. 
+
+Finally, the project makes use of agent communication through FIPA for long distance messaging. 
+
+
+Original  Program skeleton:
 https://docs.google.com/document/d/1pSkfepqotQhN5SLS89LTbAX3-L8erGC11K3HGEyIf18/edit?usp=sharing
 
 Project Report:
