@@ -23,8 +23,6 @@ global{
 	int Stage_sz<- 15;
 	float guestSpeed <- 0.5;
 	
-	//Rate for hungryness or thirstyness
-	int hungerRate <- 5;
 	
 	
 	init
@@ -58,8 +56,8 @@ global{
 	
 
 /*
- * Max value for both is 100
- * Guests enter w/ random 50 - 100
+ * 
+ * 
  * Guests will dance until they get either thirsty or hungry, then will head to info center 
  * for guidelines on reaching the food and drinks stores
  */
@@ -68,6 +66,9 @@ global{
 
 species guest skills:[moving,fipa]
 {
+	//Rate for hungryness or thirstyness
+	int hungerRate <- 5;
+	
 	float I <- rnd(50)+50.0; // Introvert
 	float G <- rnd(50)+50.0; // Generous
 	float S <- rnd(50)+50.0; // Selfish
@@ -103,14 +104,15 @@ species guest skills:[moving,fipa]
 		if (E > 80) {isEmotional <- true;} 
 	}
 	
-	reflex rave when: Happiness > 80{
-		do goto target:one_of(Stage).location speed: guestSpeed;
-		write name + "is raving and going to dance!";
+	reflex rave when: Happiness > 80 and thirst>25{
+		do goto target:Stage_Loc speed: guestSpeed;
+		write name + "is raving and going to stage!";
+		hungerRate<-8; // increase hunger rate
 	}
 	
 	/* 
-	 *  Thirstyness and hungerness 0 and 0.5
-	 * Once value is under  below 25, agent will head towards info/Store
+	 *
+	 * Once value is below 25, agent will head towards info/Store
 	 */	 
 	 
 	reflex thirstyHungry{
@@ -146,29 +148,26 @@ species guest skills:[moving,fipa]
 			
 		}
 	} 
-	
-	//Default guest/agent behaviour at festival -- missing stage location 
-	
-	
+		
+	//Default guest/agent behaviour at festival -- missing stage location
 	reflex Go_Dancing when: target=nil
 	{
 		do wander;
 		color<- #purple;
+		Happiness <- Happiness + rnd(-5,5);
 	}
 	
 	//Move towards target
 	reflex moveToTarget when: target!=nil
 	{
 		do goto target:target.location speed:guestSpeed;
-	} 
-	
+	} 	
 	
 	/* 
 	 * Guest arrives at the information center
 	 * The guests will prioritize the attribute that is lower for them,
 	 * if tied then thirst goes first and guest decides to go for a drink
-	 */
-	 
+	 */ 
 	reflex reachInfoCenter when: target!=nil and target.location= InfoCent_Loc and location distance_to(target.location) < InfoCenter_sz
 	{
 		string destinationString <- name  + " getting "; 
@@ -212,44 +211,59 @@ species guest skills:[moving,fipa]
 			}
 			
 			write "replenishString"+replenishString;
+			
 		}
-		
+		hungerRate<-5;
 		target <- nil;
 	}
 	 
-	
 }
 
+/*
+ * Species RockFan
+ * 
+ */
 species RockFan parent: guest
 {
 	//bool isRaving <- false;
+	rgb color <- #black;
 	
 	aspect default
 	{
-		draw cube(2) at: location color: #black;
+		draw cube(2) at: location color: color;
 		draw name at: location + {1,1} color: #black font: font('Default', 10, #bold);
 	}
 
+	// raving when is happy
 	reflex rave when: Happiness > 90{
-		////
-		color <- #limegreen;
+		color <- rgb(Happiness,0,0); // Hapiness level indicates the color
 	}
 
+	// when at the stage and happy, invite dancer to dance
 	reflex inviteToDance when: Happiness > 70 and (location distance_to(Stage_Loc) < Stage_sz){
 		//// TODO: FIPA to ask dancer
 		do start_conversation with:(to:: list(Dancer), protocol:: 'fipa-propose', performative:: 'propose', contents:: ['Go dancing?']);
 	}
 	
+	// when receive msg, read and update happiness
 	reflex ReadMsg when: (!empty(agrees)){
 		loop msg over: agrees {
 			if (msg.contents[0] = 'Yes!' and thirst>25){
-				Happiness <- 100.0;
+				Happiness <- 255.0;
+			}
+			if (msg.contents[0] = 'No!' and isEmotional = true){
+				//TODO: emotional rockfan
+				Happiness <- 0.0;
 			}
 		}
 	}
 	
 }
 
+
+/*
+ * Dancer: know how to dance
+ */
 species Dancer parent: guest
 {
 	aspect default
@@ -259,7 +273,6 @@ species Dancer parent: guest
 	}
 	
 	reflex Dance when: thirst > 25{
-		////
 		color <- #lime;
 	}
 	
@@ -273,7 +286,7 @@ species Dancer parent: guest
 		// TODO:enter fever mode and dance
 		loop msg over: proposes {
 			if (msg.contents[0] = 'Go dancing?' and thirst>25){
-				Happiness <- 100.0;
+				Happiness <- 200.0;
 				do start_conversation with:(to: msg.sender, protocol: 'fipa-propose', performative: 'agree', contents: ['Yes!', 'Dancer']);
 			}
             
@@ -314,15 +327,10 @@ species Info_Center parent: building
 	aspect default
 	{
 		draw cube(6) at: location color: #lightgreen;
+		//draw "Info canter";
 	}
 	
 }
-
-
-
-/* 
- * Replenish function.
- */
  
 species Stores parent: building
 {
@@ -333,8 +341,6 @@ species Stores parent: building
 		draw pyramid(6) at: location color: #green;
 	}
 }
-
-
  
 species Water parent: building
 {
@@ -345,6 +351,7 @@ species Water parent: building
 		draw pyramid(6) at: location color: #gold;
 	}
 }
+
 species Stage parent: building
 {
 	//bool sells_food<- false;
@@ -359,6 +366,7 @@ species Stage parent: building
 
 experiment main type: gui
 {
+	float minimum_cycle_duration <- 0.1;
 	
 	output
 	{
@@ -373,5 +381,16 @@ experiment main type: gui
 			species Stage;
 			
 		}
+
+    	display "my_display" {
+        	chart "Happiness level histogram" type: histogram {
+        		datalist (distribution_of(guest collect each.Happiness,25,0,255) at "legend") 
+            	value:(distribution_of(guest collect each.Happiness,25,0,255) at "values");
+            	}
+        	}
+        
+        //fisplay two monitors
+        //inspect "RockFan_Inspector" value: RockFan attributes: ["Happiness"];
+        //inspect "RockFan_Random_Inspector" value: 2 among RockFan type:table;	
 	}
 }
