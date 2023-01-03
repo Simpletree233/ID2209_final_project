@@ -9,7 +9,7 @@ model MusicParty
 global{
 		//Configuring the values
 	
-	int guest_num<- 10;
+	int guest_num<- 50;
 	int InfoCenter_num<-1;
 	int Stage_num<-1;
 	int store_num<-2;
@@ -24,20 +24,38 @@ global{
 	float guestSpeed <- 0.5;
 	
 	
+	/*There are 5 types of guests
+	 * 
+	 * 1-guest_rock_fan
+	 * 2-guest_moshpit_dancer
+	 * 3-guest_moshpit_dancer
+	 * 4-guest_drunk
+	 * 5-guest_bullies
+	 * 
+	 * Each Guest has 1 set of rules on how to interact with others ** perhaps the switch function could be used here
+	 */
 	
-	init
+	
+	
+	init 
 	{
 		create guest number: guest_num
-		{    location <- guest_Loc;}
-
-		create RockFan number: 5
-		{    location <- guest_Loc;}
+		{location <- guest_Loc;}
 		
-		create Dancer number: 5
-		{    location <- guest_Loc;}
+		create guest_rock_fan number: 10
+		{location <- guest_Loc;}
+		
+		create guest_moshpit_dancer number: 10
+		{location <- guest_Loc;}
+		
+		create guest_bullies number: 10
+		{location <- guest_Loc;}
+		
+		create guest_drunk number: 20
+		{location <- guest_Loc;}
 		
 		create Stores number: store_num
-		{		location <- store_Loc;}
+		{location <- store_Loc;}
 		
 		create Water number: water_num
 		{location <- water_Loc;		}
@@ -46,7 +64,7 @@ global{
 		{location <- InfoCent_Loc;}
 		
 		create Stage number: Stage_num
-		{	location <- Stage_Loc;}
+		{location <- Stage_Loc;}
 
 		
 			}
@@ -220,10 +238,10 @@ species guest skills:[moving,fipa]
 }
 
 /*
- * Species RockFan
+ * Species guest_rock_fan
  * 
  */
-species RockFan parent: guest
+species guest_rock_fan parent: guest
 {
 	//bool isRaving <- false;
 	rgb color <- #black;
@@ -239,10 +257,10 @@ species RockFan parent: guest
 		color <- rgb(Happiness,0,0); // Hapiness level indicates the color
 	}
 
-	// when at the stage and happy, invite dancer to dance
+	// when at the stage and happy, invite guest_moshpit_dancer to dance
 	reflex inviteToDance when: Happiness > 70 and (location distance_to(Stage_Loc) < Stage_sz){
-		//// TODO: FIPA to ask dancer
-		do start_conversation with:(to:: list(Dancer), protocol:: 'fipa-propose', performative:: 'propose', contents:: ['Go dancing?']);
+		//// TODO: FIPA to ask guest_moshpit_dancer
+		do start_conversation with:(to:: list(guest_moshpit_dancer), protocol:: 'fipa-propose', performative:: 'propose', contents:: ['Go dancing?']);
 	}
 	
 	// when receive msg, read and update happiness
@@ -262,9 +280,9 @@ species RockFan parent: guest
 
 
 /*
- * Dancer: know how to dance
+ * guest_moshpit_dancer: know how to dance only dance in the mosh_pit with..
  */
-species Dancer parent: guest
+species guest_moshpit_dancer parent: guest
 {
 	aspect default
 	{
@@ -287,15 +305,66 @@ species Dancer parent: guest
 		loop msg over: proposes {
 			if (msg.contents[0] = 'Go dancing?' and thirst>25){
 				Happiness <- 200.0;
-				do start_conversation with:(to: msg.sender, protocol: 'fipa-propose', performative: 'agree', contents: ['Yes!', 'Dancer']);
+				do start_conversation with:(to: msg.sender, protocol: 'fipa-propose', performative: 'agree', contents: ['Yes!', 'guest_moshpit_dancer']);
 			}
             
         }
         proposes <- [];
 	}
 }
+/*New species added here  */
+	
+	species guest_bullies skills:[moving]{
+	bool isHungry <- false update: flip(0.5);
+	bool isThirsty <- false update: flip(0.5);
+	
+	aspect base {
+		rgb agentColor <- rgb("green");
+		
+		if (isHungry and isThirsty) {
+			agentColor <- rgb("red");
+		} else if (isThirsty) {
+			agentColor <- rgb("darkorange");
+		} else if (isHungry) {
+			agentColor <- rgb("purple");
+		}
+		
+		draw circle(1) color: agentColor;
+	}
+	
+	// ------------------ They Just move around ------------------
+	reflex move {
+		do wander;
+	}
+}		
+	species guest_drunk skills:[moving]{
+	bool isHungry <- false update: flip(0.5);
+	bool isThirsty <- false update: flip(0.5);
+	
+	aspect base {
+		rgb agentColor <- rgb("green");
+		
+		if (isHungry and isThirsty) {
+			agentColor <- rgb("red");
+		} else if (isThirsty) {
+			agentColor <- rgb("darkorange");
+		} else if (isHungry) {
+			agentColor <- rgb("purple");
+		}
+		
+		draw circle(1) color: agentColor;
+	}
+	
+	// ------------------ They Just move around ------------------
+	reflex move {
+		do wander;
+	}
+}	
 
 
+
+
+/*  After here there are no more types of guests  */
 species building
 {
 	bool sells_food<- false;
@@ -374,9 +443,11 @@ experiment main type: gui
 		{
 			species Info_Center;
 			species Stores;
-			species guest;
-			species RockFan;
-			species Dancer;
+			species guest_moshpit_dancer;
+			species guest_rock_fan;
+			species guest_moshpit_dancer;
+			species guest_drunk;
+			species guest_bullies;
 			species Water;
 			species Stage;
 			
