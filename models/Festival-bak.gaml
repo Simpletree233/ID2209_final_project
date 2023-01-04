@@ -9,20 +9,22 @@ model MusicParty
 global{
 		//Configuring the values
 	
-	int guest_num<- 50;
+	int guest_num<- 3;
 	int InfoCenter_num<-1;
 	int Stage_num<-1;
 	int store_num<-2;
 	int water_num<-2;
+	int stepCounterVariable <- 0 max: 360 update: stepCounterVariable+1; // simulating 360 minutes or 6 hrs
 	point InfoCent_Loc <- {50,80};
 	int InfoCenter_sz<- 20;
 	point Stage_Loc <- {80,50};   // Stage Area 
+	point moshpit_Loc <- {40,40};   // moshpit Area 
 	point guest_Loc <- {80,40};  //Dancing Area next to the stage 
 	point store_Loc <- {30,10};  //Stores with food
 	point water_Loc <- {20,10};  //Stores with water
 	int Stage_sz<- 15;
 	float guestSpeed <- 0.5;
-	
+	point previousLocation <- {50,80};
 	
 	/*There are 5 types of guests
 	 * 
@@ -36,29 +38,36 @@ global{
 	 */
 	
 	
+	/*3 Personal Traits for each one 
+	 * 
+	 * 
+	 * 
+	 */
+	
+	
 	
 	init 
 	{
 		create guest number: guest_num
 		{location <- guest_Loc;}
 		
-		create guest_rock_fan number: 10
+		create guest_rock_fan number: 1
 		{location <- guest_Loc;}
 		
-		create guest_moshpit_dancer number: 10
+		create guest_moshpit_dancer number: 1
 		{location <- guest_Loc;}
 		
-		create guest_bullies number: 10
+		create guest_bullies number: 1
 		{location <- guest_Loc;}
 		
-		create guest_drunk number: 20
+		create guest_drunk number: 1
 		{location <- guest_Loc;}
 		
 		create Stores number: store_num
 		{location <- store_Loc;}
 		
 		create Water number: water_num
-		{location <- water_Loc;		}
+		{location <- water_Loc;	}
 		
 		create Info_Center number: InfoCenter_num
 		{location <- InfoCent_Loc;}
@@ -70,40 +79,35 @@ global{
 			}
 
 		}
-	
-	
-
-/*
- * 
- * 
- * Guests will dance until they get either thirsty or hungry, then will head to info center 
- * for guidelines on reaching the food and drinks stores
- */
-
-
 
 species guest skills:[moving,fipa]
 {
-	//Rate for hungryness or thirstyness
-	int hungerRate <- 5;
+
+	// Three (3) personal Traits used for the Guests 
 	
-	float I <- rnd(50)+50.0; // Introvert
-	float G <- rnd(50)+50.0; // Generous
-	float S <- rnd(50)+50.0; // Selfish
-	float E <- rnd(50)+50.0; // emotional		
+	float I <- rnd(50)+50.0; // Social (used for Introvert or Extrovert)
+	float G <- rnd(50)+50.0; // Genorisity Used for selfish or generous
+	float E <- rnd(50)+50.0; // Emotional or Not Emotional 
+	
+	float Happiness <- rnd(50)+50.0;	// We are measuring this value according to ageints interactions 
+	float energy <- 100.0 max 100.0; // It will decrease every second and restock after drinking or eating
+	float drunkness <- 0; // It will decrease every second and restock after drinking or eating  
+	//float thirst<- rnd(50)+50.0;   // To have them Drink or not 
+//	float hunger<- rnd(50)+50.0;	// Maybe not needed 
+	
+	// Base values ofr personality Traits 
 	bool isIntrovert <- false;
+	bool isExtrovert <- false;
 	bool isGenerous <- false;
 	bool isSelfish <- false;
-	bool isEmotional <- false;
+	bool isHappy <- false;
+	bool isNotHappy <- false;
 	
-	float Happiness <- rnd(50)+50.0;
+	// To flip desition on eating or drinking to get more energy and move
+	bool flippingFoodDrinkVariable <- true update: flip(0.5);
 	
-	float thirst<- rnd(50)+50.0;
-	float hunger<- rnd(50)+50.0;	
-
 	
 	rgb color<- #red;
-	
 	
 	building target<- nil;
 	
@@ -114,60 +118,96 @@ species guest skills:[moving,fipa]
 		
 	}
 	
+	
+	
+/*All the guests are given 100 % of energy, the concert last 6 hrs, 
+ * and depending of their activities they lose energy levels by the minute. 
+ * If they moshpit energy increases more than if they are just dancing or somewhere else.
+ * The energy level will be used to go to eat or drink to restock their energy levels.
+ */ 
+ 
+reflex updateEnergy
+{
+    if location = Stage_Loc
+    {
+      energy <- energy - 0.5 * 2;  // reduces by a factor of 2x
+    }
+    else if location = moshpit_Loc
+    {
+      energy <- energy - 0.5 * 4; // reduces by a factor of 4x
+    }
+    else
+    {
+      energy <- energy - 0.5; // reduces at a normal rate
+   }
+}
+
+ /* This reflex prints out the current energy level of each guest to the console
+ * This could be a readable value together with happiness.
+ */ 
+
+   reflex fromToLoop {
+    	loop counter from: 1 to: stepCounterVariable {
+    		write "Time elapsed: " + counter + " minutes, and the energy level of " + name + " is " + energy + "%" ;
+    	}
+    }
+
+
+reflex restockEnergy
+{
+  previousLocation  <- location;  // store current location as previous location
+
+  if (energy < 20  and flippingFoodDrinkVariable)
+  {
+    do goto target:water_Loc speed: guestSpeed;
+    energy <- energy + 1;
+    drunkness <- drunkness + 1 ;
+    write name + " drunk, level of drunkness of " + drunkness +" %" + " and level of energy of: " + energy + " % ";
+  }
+  else
+  {
+    do goto target: store_Loc speed: guestSpeed;
+    energy <- energy + 5;
+    write name + " ate, level of drunkness of " + drunkness +" %" + " and level of energy of: " + energy + " % ";
+  }
+
+  do goto target: previousLocation speed: guestSpeed;  // go back to previous location
+}
+
+
+	
+	
+	
+	
+	// Personality Values 
+	
 	reflex updatePersonality{
-		// To see if an agent is introverted, generous, selfish, emotional or not...
-		if (I > 80) {isIntrovert <- true;}
-		if (G > 80) {isGenerous <- true;}
-		if (S > 80) {isSelfish <- true;}
-		if (E > 80) {isEmotional <- true;} 
+		// To see if an agent is introverted, extrovert, generous, selfish, unHappy or happy...
+		if (I < 74) {isIntrovert <- true;}
+		if (I > 75) {isExtrovert <- true;}
+		if (G > 75) {isGenerous <- true;}
+		if (G < 74) {isSelfish <- true;}
+		if (E > 70) {isHappy <- true;}
+		if (E > 80) {isNotHappy <- true;} 
 	}
 	
-	reflex rave when: Happiness > 80 and thirst>25{
+	// First Place where They hangout 
+	reflex rave when: Happiness > 80 {
 		do goto target:Stage_Loc speed: guestSpeed;
+		previousLocation <- location;
 		write name + "is raving and going to stage!";
-		hungerRate<-8; // increase hunger rate
 	}
 	
-	/* 
-	 *
-	 * Once value is below 25, agent will head towards info/Store
-	 */	 
-	 
-	reflex thirstyHungry{
+	// Second Place where They hangout 
+	
+	reflex moshpit when: Happiness > 80 {
+		do goto target:moshpit_Loc speed: guestSpeed;
+		location <- moshpit_Loc;
+		write name + "is raving and going to stage!";	}
 		
-		//Decrement thirst and hunger counters
-		thirst<- thirst-rnd(hungerRate);
-		hunger<- hunger-rnd(hungerRate);
-		
-		bool getFood<- false;
-		
-		if(target=nil and (thirst < 25 or hunger < 25)){
-			string destinationMessage<- name;
-			//write destinationMessage;
-			if(thirst < 25 and hunger < 25)
-			{
-				destinationMessage <- destinationMessage + " is thirsty and hungry,";
-			}
-			else if(thirst < 25)
-			{
-				destinationMessage <- destinationMessage + " is thirsty,";
-			}
-			else if(hunger < 25)
-			{
-				destinationMessage <- destinationMessage + " is hungry,";
-				getFood <- true;
-			}
-			
-			color<- #blue;
-			target <- one_of(Info_Center);
-			
-			destinationMessage <- destinationMessage + " heading to " + target.name;
-			write destinationMessage;
-			
-		}
-	} 
-		
-	//Default guest/agent behaviour at festival -- missing stage location
+	// third Place where They hangout is the stores  
+
+		//Default guest/agent behaviour at festival -- missing stage location
 	reflex Go_Dancing when: target=nil
 	{
 		do wander;
@@ -181,59 +221,6 @@ species guest skills:[moving,fipa]
 		do goto target:target.location speed:guestSpeed;
 	} 	
 	
-	/* 
-	 * Guest arrives at the information center
-	 * The guests will prioritize the attribute that is lower for them,
-	 * if tied then thirst goes first and guest decides to go for a drink
-	 */ 
-	reflex reachInfoCenter when: target!=nil and target.location= InfoCent_Loc and location distance_to(target.location) < InfoCenter_sz
-	{
-		string destinationString <- name  + " getting "; 
-		ask Info_Center at_distance InfoCenter_sz
-		{
-			if(myself.thirst <= myself.hunger)
-			{
-				myself.target <- Waters[rnd(length(Waters)-1)];
-				myself.color<- #gold;
-				destinationString <- destinationString + "drink at ";
-			}
-			else
-			{
-				myself.target <- Storess[rnd(length(Storess)-1)];
-				myself.color<- #lightblue;
-				destinationString <- destinationString + "food at ";
-			}
-			
-			write destinationString + myself.target.name;
-		}
-	}
-	
-	reflex isThisAStore when: target != nil and location distance_to(target.location) < 2
-	{
-		ask target
-		{
-			string replenishString <- myself.name;	
-			if(sells_food = true)
-			{
-				myself.hunger <- 1000.0;
-				myself.target<-nil;
-				myself.color<- #brown;
-				replenishString <- replenishString + " ate food at " + name;
-			}
-			else if(sells_water = true)
-			{
-				myself.thirst <- 1500.0;
-				myself.target<-nil;
-				myself.color<- #red;
-				replenishString <- replenishString + " had a drink at " + name;
-			}
-			
-			write "replenishString"+replenishString;
-			
-		}
-		hungerRate<-5;
-		target <- nil;
-	}
 	 
 }
 
@@ -266,10 +253,10 @@ species guest_rock_fan parent: guest
 	// when receive msg, read and update happiness
 	reflex ReadMsg when: (!empty(agrees)){
 		loop msg over: agrees {
-			if (msg.contents[0] = 'Yes!' and thirst>25){
+			if (msg.contents[0] = 'Yes!'){
 				Happiness <- 255.0;
 			}
-			if (msg.contents[0] = 'No!' and isEmotional = true){
+			if (msg.contents[0] = 'No!' and isHappy = true){
 				//TODO: emotional rockfan
 				Happiness <- 0.0;
 			}
@@ -290,7 +277,7 @@ species guest_moshpit_dancer parent: guest
 		draw name at: location + {1,1} color: #black font: font('Default', 10, #bold);
 	}
 	
-	reflex Dance when: thirst > 25{
+	reflex Dance when: energy > 25{
 		color <- #lime;
 	}
 	
@@ -303,7 +290,7 @@ species guest_moshpit_dancer parent: guest
 		// TODO:read the FIPA invitation and respond
 		// TODO:enter fever mode and dance
 		loop msg over: proposes {
-			if (msg.contents[0] = 'Go dancing?' and thirst>25){
+			if (msg.contents[0] = 'Go dancing?' and energy>25){
 				Happiness <- 200.0;
 				do start_conversation with:(to: msg.sender, protocol: 'fipa-propose', performative: 'agree', contents: ['Yes!', 'guest_moshpit_dancer']);
 			}
