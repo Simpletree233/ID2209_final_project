@@ -20,12 +20,12 @@ global{
 	int InfoCenter_sz<- 20;
 	
 	point Stage_Loc <- {80,50};   // Stage
-	int Stage_sz <- 15; // stage size
+	int Stage_sz <- 20; // stage size
 	int Stage_area<- 20; // the area that stage covers	
 	
 	point moshpit_Loc <- {60,15};   // moshpit 
 	int moshpit_sz <- 10;
-	int moshpit_area <- 20;
+	int moshpit_area <- 12;
 	
 	point guest_Loc <- {80,40};  //Guest spawn location
 	point store_Loc <- {30,10};  //Stores with food
@@ -433,17 +433,17 @@ species Stage parent: building
 {
 	aspect default
 	{
-		draw pyramid(Stage_sz) at: location color: #violet;
-		draw "Stage" at:location+{10,10} color:#black;
+		draw square(Stage_sz) wireframe:true at: location color: #green;
+		draw "Stage" at:location color:#black font: font('Default', 20, #bold);
 	}
 }
 
 species Moshpit parent: building
 {
-	aspect default
-	{
-		//draw pyramid(moshpit_sz) at: location color: #green;
-		draw "Moshpit" at:location color:#black;
+	aspect default 
+	{	
+		draw circle(moshpit_sz) wireframe:true at: location color: #black;
+		draw "Moshpit" at:location color:#black font: font('Default', 25, #bold);
 	}
 }
 
@@ -453,12 +453,12 @@ experiment main type: gui
 	
 	output
 	{
-		display map type: opengl
+		display map type: opengl 
 		{
 			//species Info_Center;
 			species Stores;
-			species Stage;
-			species Moshpit;	
+			species Stage transparency:0.5;
+			species Moshpit transparency:0.5;	
 			species Water;	
 							
 			species guest;
@@ -466,6 +466,10 @@ experiment main type: gui
 			species guest_moshpit_dancer;
 			species guest_drunk;
 			species guest_bullies;	
+			
+			graphics "clock1" {
+        		draw "Tim Elasped:" + stepCounterVariable + "minutes" at:{1,3} color: #black font: font('Default', 15, #bold);
+        	}
 		}
 
     	display "my_display" {
@@ -474,6 +478,7 @@ experiment main type: gui
             	value:(distribution_of(guest collect each.Happiness,25,0,255) at "values");
             	}
         	}
+
         
         //fisplay two monitors
         //inspect "RockFan_Inspector" value: RockFan attributes: ["Happiness"];
