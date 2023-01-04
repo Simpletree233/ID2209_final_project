@@ -15,14 +15,22 @@ global{
 	int store_num<-2;
 	int water_num<-2;
 	int stepCounterVariable <- 0 max: 360 update: stepCounterVariable+1; // simulating 360 minutes or 6 hrs
+	
 	point InfoCent_Loc <- {50,80};
 	int InfoCenter_sz<- 20;
-	point Stage_Loc <- {80,50};   // Stage Area 
-	point moshpit_Loc <- {40,40};   // moshpit Area 
-	point guest_Loc <- {80,40};  //Dancing Area next to the stage 
+	
+	point Stage_Loc <- {80,50};   // Stage
+	int Stage_sz <- 15; // stage size
+	int Stage_area<- 20; // the area that stage covers	
+	
+	point moshpit_Loc <- {60,15};   // moshpit 
+	int moshpit_sz <- 10;
+	int moshpit_area <- 20;
+	
+	point guest_Loc <- {80,40};  //Guest spawn location
 	point store_Loc <- {30,10};  //Stores with food
 	point water_Loc <- {20,10};  //Stores with water
-	int Stage_sz<- 15;
+
 	float guestSpeed <- 0.5;
 	point previousLocation <- {50,80};
 	
@@ -43,7 +51,6 @@ global{
 	 * 
 	 * 
 	 */
-	
 	
 	
 	init 
@@ -69,8 +76,8 @@ global{
 		create Water number: water_num
 		{location <- water_Loc;	}
 		
-		create Info_Center number: InfoCenter_num
-		{location <- InfoCent_Loc;}
+		create Moshpit number: 1
+		{location <- moshpit_Loc;}
 		
 		create Stage number: Stage_num
 		{location <- Stage_Loc;}
@@ -79,6 +86,8 @@ global{
 			}
 
 		}
+
+//////////////////////////////////////////Species below//////////////////////////////////
 
 species guest skills:[moving,fipa]
 {
@@ -89,12 +98,12 @@ species guest skills:[moving,fipa]
 	float G <- rnd(50)+50.0; // Genorisity Used for selfish or generous
 	float E <- rnd(50)+50.0; // Emotional or Not Emotional 
 	
-	float Happiness <- rnd(50)+50.0;	// We are measuring this value according to ageints interactions 
+	float Happiness <- rnd(50)+50.0;	// We are measuring this value according to agents interactions 
 	float energy <- 100.0 max 100.0; // It will decrease every second and restock after drinking or eating
-	float drunkness <- 0; // It will decrease every second and restock after drinking or eating  
+	float drunkness <- 0.0; // It will decrease every second and restock after drinking or eating  
 	//float thirst<- rnd(50)+50.0;   // To have them Drink or not 
-//	float hunger<- rnd(50)+50.0;	// Maybe not needed 
-	
+	//float hunger<- rnd(50)+50.0;	// Maybe not needed 
+
 	// Base values ofr personality Traits 
 	bool isIntrovert <- false;
 	bool isExtrovert <- false;
@@ -103,7 +112,7 @@ species guest skills:[moving,fipa]
 	bool isHappy <- false;
 	bool isNotHappy <- false;
 	
-	// To flip desition on eating or drinking to get more energy and move
+	// To flip decision on whether eating or drinking to get more energy and move
 	bool flippingFoodDrinkVariable <- true update: flip(0.5);
 	
 	
@@ -126,89 +135,85 @@ species guest skills:[moving,fipa]
  * The energy level will be used to go to eat or drink to restock their energy levels.
  */ 
  
-reflex updateEnergy
-{
-    if location = Stage_Loc
-    {
-      energy <- energy - 0.5 * 2;  // reduces by a factor of 2x
-    }
-    else if location = moshpit_Loc
-    {
-      energy <- energy - 0.5 * 4; // reduces by a factor of 4x
-    }
-    else
-    {
-      energy <- energy - 0.5; // reduces at a normal rate
-   }
-}
+	reflex updateEnergyAndDrunkness
+	{
+	    if location distance_to Stage_Loc < Stage_area
+	    {
+	      energy <- energy - 0.5 * 2;  // reduces by a factor of 2x
+	    }
+	    else if location distance_to moshpit_Loc < moshpit_area
+	    {
+	      energy <- energy - 0.5 * 4; // reduces by a factor of 4x
+	    }
+	    else
+	    {
+	      energy <- energy - 0.5; // reduces at a normal rate
+	      drunkness <- drunkness - 0.1; 
+	   }
+	}
 
  /* This reflex prints out the current energy level of each guest to the console
  * This could be a readable value together with happiness.
  */ 
 
-   reflex fromToLoop {
-    	loop counter from: 1 to: stepCounterVariable {
-    		write "Time elapsed: " + counter + " minutes, and the energy level of " + name + " is " + energy + "%" ;
-    	}
-    }
+   reflex fromToLoop { // Note:this is fixed
+    	//write "Time elapsed: " + stepCounterVariable + " minutes, and the energy level of " + name + " is " + energy + "%" ;
+    } 
 
 
-reflex restockEnergy
-{
-  previousLocation  <- location;  // store current location as previous location
-
-  if (energy < 20  and flippingFoodDrinkVariable)
-  {
-    do goto target:water_Loc speed: guestSpeed;
-    energy <- energy + 1;
-    drunkness <- drunkness + 1 ;
-    write name + " drunk, level of drunkness of " + drunkness +" %" + " and level of energy of: " + energy + " % ";
-  }
-  else
-  {
-    do goto target: store_Loc speed: guestSpeed;
-    energy <- energy + 5;
-    write name + " ate, level of drunkness of " + drunkness +" %" + " and level of energy of: " + energy + " % ";
-  }
-
-  do goto target: previousLocation speed: guestSpeed;  // go back to previous location
-}
-
-
+	reflex restockEnergy // when energy level is low
+	{
+	  previousLocation  <- location;  // store current location as previous location
 	
+	  if (energy < 20  and flippingFoodDrinkVariable)  //50% prob to get drink
+	  {
+	    do goto target:water_Loc speed: guestSpeed;
+	    energy <- energy + 1;
+	    drunkness <- drunkness + 1 ;
+	    write name + " drunk, level of drunkness of " + drunkness +" %" + " and level of energy of: " + energy + " % ";
+	    do goto target: previousLocation speed: guestSpeed;  // go back to previous location
+	  }
+	  else if (energy < 20)   // get food at store
+	  {
+	    do goto target: store_Loc speed: guestSpeed;
+	    energy <- energy + 5;
+	    write name + " ate, level of drunkness of " + drunkness +" %" + " and level of energy of: " + energy + " % ";
+	    do goto target: previousLocation speed: guestSpeed;  // go back to previous location
+	  }
 	
-	
+	  //do goto target: previousLocation speed: guestSpeed;  // go back to previous location
+	}
 	
 	// Personality Values 
-	
 	reflex updatePersonality{
 		// To see if an agent is introverted, extrovert, generous, selfish, unHappy or happy...
 		if (I < 74) {isIntrovert <- true;}
 		if (I > 75) {isExtrovert <- true;}
 		if (G > 75) {isGenerous <- true;}
 		if (G < 74) {isSelfish <- true;}
-		if (E > 70) {isHappy <- true;}
-		if (E > 80) {isNotHappy <- true;} 
+		if (Happiness > 70) {isHappy <- true;}
+		if (Happiness < 20) {isHappy <- false;} 
 	}
 	
 	// First Place where They hangout 
-	reflex rave when: Happiness > 80 {
-		do goto target:Stage_Loc speed: guestSpeed;
-		previousLocation <- location;
+	reflex rave when: isHappy {
+		do goto target:Stage_Loc speed: guestSpeed+1;
+		//previousLocation <- location;
 		write name + "is raving and going to stage!";
 	}
 	
 	// Second Place where They hangout 
-	
-	reflex moshpit when: Happiness > 80 {
-		do goto target:moshpit_Loc speed: guestSpeed;
+	reflex moshpit when: isHappy and isExtrovert {
+		//TODO: add conditions that guest will choose between the two places, like invited by dancer etc
+		do goto target:moshpit_Loc speed: guestSpeed+2;
 		location <- moshpit_Loc;
-		write name + "is raving and going to stage!";	}
+		//write name + "is going to moshipit!";	
+		}
 		
 	// third Place where They hangout is the stores  
-
-		//Default guest/agent behaviour at festival -- missing stage location
-	reflex Go_Dancing when: target=nil
+	
+	
+	reflex Wander when: target=nil
 	{
 		do wander;
 		color<- #purple;
@@ -240,34 +245,43 @@ species guest_rock_fan parent: guest
 	}
 
 	// raving when is happy
-	reflex rave when: Happiness > 90{
+	reflex rave when: isHappy{
 		color <- rgb(Happiness,0,0); // Hapiness level indicates the color
 	}
 
 	// when at the stage and happy, invite guest_moshpit_dancer to dance
-	reflex inviteToDance when: Happiness > 70 and (location distance_to(Stage_Loc) < Stage_sz){
+	reflex inviteToDance when: isHappy and (location distance_to(moshpit_Loc) < moshpit_area){
 		//// TODO: FIPA to ask guest_moshpit_dancer
+		write "RockFan" + name + " invites nearby dancer to dancer";
 		do start_conversation with:(to:: list(guest_moshpit_dancer), protocol:: 'fipa-propose', performative:: 'propose', contents:: ['Go dancing?']);
 	}
 	
 	// when receive msg, read and update happiness
 	reflex ReadMsg when: (!empty(agrees)){
 		loop msg over: agrees {
-			if (msg.contents[0] = 'Yes!'){
+			if (msg.contents[0] = 'Yes!' and isHappy = true){
+				write "RockFan" + name + " 's proposal is accepted. He is happy.";
 				Happiness <- 255.0;
 			}
-			if (msg.contents[0] = 'No!' and isHappy = true){
-				//TODO: emotional rockfan
+			if (msg.contents[0] = 'No!' and isHappy = false){
+				//TODO: what will sad rockfan do?
+				write "RockFan" + name + " 's proposal got rejected. He is sad."; 
 				Happiness <- 0.0;
+				do getDrunk;
 			}
 		}
+	}
+	
+	action getDrunk{
+		do goto target:one_of(water_Loc) speed:guestSpeed;
+		drunkness <- drunkness + 10;
 	}
 	
 }
 
 
 /*
- * guest_moshpit_dancer: know how to dance only dance in the mosh_pit with..
+ * guest_moshpit_dancer: know how to dance, only dance in the mosh_pit with..
  */
 species guest_moshpit_dancer parent: guest
 {
@@ -279,20 +293,26 @@ species guest_moshpit_dancer parent: guest
 	
 	reflex Dance when: energy > 25{
 		color <- #lime;
+		do goto target:moshpit_Loc speed:guestSpeed+2;
+		Happiness <- Happiness + rnd(2); 
 	}
 	
-	reflex rave when: Happiness > 90{
+	reflex rave when: energy > 25 and isHappy{
 		////
 		color <- #limegreen;
 	}
 	
-	reflex RespondToInvitation when: (!empty(proposes)) and (location distance_to(Stage_Loc) < Stage_sz){  
+	reflex RespondToInvitation when: (!empty(proposes)) and (location distance_to(moshpit_Loc) < moshpit_area){  
 		// TODO:read the FIPA invitation and respond
 		// TODO:enter fever mode and dance
 		loop msg over: proposes {
-			if (msg.contents[0] = 'Go dancing?' and energy>25){
+			if (msg.contents[0] = 'Go dancing?' and energy > 25){
 				Happiness <- 200.0;
 				do start_conversation with:(to: msg.sender, protocol: 'fipa-propose', performative: 'agree', contents: ['Yes!', 'guest_moshpit_dancer']);
+			}
+			else if (msg.contents[0] = 'Go dancing?' and energy < 20){
+				Happiness <- 100.0;
+				do start_conversation with:(to: msg.sender, protocol: 'fipa-propose', performative: 'agree', contents: ['No!', 'guest_moshpit_dancer']);
 			}
             
         }
@@ -301,7 +321,7 @@ species guest_moshpit_dancer parent: guest
 }
 /*New species added here  */
 	
-	species guest_bullies skills:[moving]{
+species guest_bullies skills:[moving]{
 	bool isHungry <- false update: flip(0.5);
 	bool isThirsty <- false update: flip(0.5);
 	
@@ -323,8 +343,9 @@ species guest_moshpit_dancer parent: guest
 	reflex move {
 		do wander;
 	}
-}		
-	species guest_drunk skills:[moving]{
+}
+		
+species guest_drunk skills:[moving]{
 	bool isHungry <- false update: flip(0.5);
 	bool isThirsty <- false update: flip(0.5);
 	
@@ -347,7 +368,6 @@ species guest_moshpit_dancer parent: guest
 		do wander;
 	}
 }	
-
 
 
 
@@ -383,7 +403,7 @@ species Info_Center parent: building
 	aspect default
 	{
 		draw cube(6) at: location color: #lightgreen;
-		//draw "Info canter";
+		//draw "Info center";
 	}
 	
 }
@@ -395,6 +415,7 @@ species Stores parent: building
 	aspect default
 	{
 		draw pyramid(6) at: location color: #green;
+		draw "Store" at:location+{5,5} color:#black;
 	}
 }
  
@@ -404,19 +425,25 @@ species Water parent: building
 	
 	aspect default
 	{
-		draw pyramid(6) at: location color: #gold;
+		draw pyramid(3) at: location color: #gold;
 	}
 }
 
 species Stage parent: building
 {
-	//bool sells_food<- false;
-	//bool sells_water<- false;	
-	
 	aspect default
 	{
-		draw pyramid(10) at: location color: #violet;
-		draw "Stage" at:location+{5,5} color:#black;
+		draw pyramid(Stage_sz) at: location color: #violet;
+		draw "Stage" at:location+{10,10} color:#black;
+	}
+}
+
+species Moshpit parent: building
+{
+	aspect default
+	{
+		//draw pyramid(moshpit_sz) at: location color: #green;
+		draw "Moshpit" at:location color:#black;
 	}
 }
 
@@ -428,16 +455,17 @@ experiment main type: gui
 	{
 		display map type: opengl
 		{
-			species Info_Center;
+			//species Info_Center;
 			species Stores;
-			species guest_moshpit_dancer;
+			species Stage;
+			species Moshpit;	
+			species Water;	
+							
+			species guest;
 			species guest_rock_fan;
 			species guest_moshpit_dancer;
 			species guest_drunk;
-			species guest_bullies;
-			species Water;
-			species Stage;
-			
+			species guest_bullies;	
 		}
 
     	display "my_display" {
