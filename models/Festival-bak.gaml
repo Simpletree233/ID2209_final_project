@@ -195,6 +195,12 @@ species guest skills:[moving,fipa]
 		if (Happiness < 20) {isHappy <- false;} 
 	}
 	
+	reflex SwitchSetOfRules{
+		if (energy > 25){
+			
+		}
+	}
+	
 	// First Place where They hangout 
 	reflex rave when: isHappy {
 		do goto target:Stage_Loc speed: guestSpeed+1;
@@ -321,9 +327,22 @@ species guest_moshpit_dancer parent: guest
 }
 /*New species added here  */
 	
-species guest_bullies skills:[moving]{
+species guest_bullies parent:guest control: simple_bdi{
 	bool isHungry <- false update: flip(0.5);
 	bool isThirsty <- false update: flip(0.5);
+	bool isBully <- true;
+	
+	string BullyString <- "Looking for someone to bully";
+    predicate Bully <- new_predicate(BullyString);
+    
+    string ChillString <- "Looking for someone to bully";
+    predicate NotInTheMood <- new_predicate(ChillString);
+    
+	init {
+		if (isBully) {
+			do add_desire(Bully);
+		}
+	}
 	
 	aspect base {
 		rgb agentColor <- rgb("green");
@@ -343,6 +362,16 @@ species guest_bullies skills:[moving]{
 	reflex move {
 		do wander;
 	}
+	
+	plan IrregateSomeone intention: Bully {
+		//TODO do something here with FIPA communication
+		do wander;
+	}
+	
+	plan Chill intention:NotInTheMood {
+		do wander;
+	}
+	
 }
 		
 species guest_drunk skills:[moving]{
@@ -350,7 +379,7 @@ species guest_drunk skills:[moving]{
 	bool isThirsty <- false update: flip(0.5);
 	
 	aspect base {
-		rgb agentColor <- rgb("green");
+		rgb agentColor <- rgb("green"); //<- rgb(Happiness,0,0);
 		
 		if (isHungry and isThirsty) {
 			agentColor <- rgb("red");
