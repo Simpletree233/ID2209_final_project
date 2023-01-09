@@ -195,10 +195,18 @@ species guest skills:[moving,fipa]
 		if (Happiness < 20) {isHappy <- false;} 
 	}
 	
-	reflex SwitchSetOfRules{
-		if (energy > 25){
+	//Global reflex that Respond to all FIPA proposes
+	reflex Responding when: (!empty(proposes)) {
+		loop msg over:proposes {
+			if (msg.content[0] = "XXX" and isHappy = false) {
+				do wander;
+			}
 			
+			else if (msg.content[0] = "XXX") {
+				do wander;
+			}
 		}
+		proposes <-[];
 	}
 	
 	// First Place where They hangout 
@@ -339,7 +347,7 @@ species guest_bullies parent:guest control: simple_bdi{
     predicate NotInTheMood <- new_predicate(ChillString);
     
 	init {
-		if (isBully) {
+		if (isExtrovert and isSelfish) {
 			do add_desire(Bully);
 		}
 	}
@@ -363,9 +371,9 @@ species guest_bullies parent:guest control: simple_bdi{
 		do wander;
 	}
 	
-	plan IrregateSomeone intention: Bully {
+	plan IrrigateSomeone intention: Bully {
 		//TODO do something here with FIPA communication
-		do wander;
+		//do start_conversation();
 	}
 	
 	plan Chill intention:NotInTheMood {
