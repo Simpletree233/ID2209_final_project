@@ -6,10 +6,40 @@
 
 model MusicParty
 
+	/*There are 5 types of guests
+	 * 
+	 * 1-guest_rock_fan
+	 * 2-guest_moshpit_dancer
+	 * 3-guest_moshpit_dancer
+	 * 4-guest_drunk
+	 * 5-guest_bullies
+	 * 
+	 * Each Guest has 1 set of rules on how to interact with others ** perhaps the switch function could be used here
+	 */
+	
+	
+	/*3 Personal Traits for each one 
+	 * 
+	 * 
+	 * 
+	 */
+	
+
+
 global{
 		//Configuring the values
 	
-	int guest_num<- 3;
+	//This 2 lines are used for BDI- so agents have a set of rules to deal with other types
+	 
+    string lookingForFriendsString <- "Looking for an interesting guest_rock_fan";
+    predicate lookingForFriends <- new_predicate(lookingForFriendsString);
+    
+    string found_a_new_friendString <- "Found a guest_rock_fan with music";
+    predicate found_a_new_friend <- new_predicate(found_a_new_friendString);
+    
+    /// End needed for set of rules between types
+    
+	int guest_num<- 50;
 	int InfoCenter_num<-1;
 	int Stage_num<-1;
 	int store_num<-2;
@@ -34,24 +64,7 @@ global{
 	float guestSpeed <- 0.5;
 	point previousLocation <- {50,80};
 	
-	/*There are 5 types of guests
-	 * 
-	 * 1-guest_rock_fan
-	 * 2-guest_moshpit_dancer
-	 * 3-guest_moshpit_dancer
-	 * 4-guest_drunk
-	 * 5-guest_bullies
-	 * 
-	 * Each Guest has 1 set of rules on how to interact with others ** perhaps the switch function could be used here
-	 */
-	
-	
-	/*3 Personal Traits for each one 
-	 * 
-	 * 
-	 * 
-	 */
-	
+
 	
 	init 
 	{
@@ -88,10 +101,72 @@ global{
 		}
 
 //////////////////////////////////////////Species below//////////////////////////////////
+/*We have used a global Guest species, and used simple_bdi for making friends  */
 
-species guest skills:[moving,fipa]
-{
 
+species guest skills:[moving,fipa] control: simple_bdi {
+	// Begin set of rules using  BDI to make friends according to other types #
+	 int viewDistance <- 10;
+	bool isInterestedInMusic <- flip(0.5);
+	bool isInterestedInMakingFriends <- flip(0.5);
+	
+	init {
+		if (isInterestedInMusic) {
+			// At this moment, the intention list is empty. So, the first item in the desire list will be added to the intention list.
+			// In other words, here, the first intention is equal to the first desire--lookingForFriends.
+        	do add_desire(lookingForFriends);
+        }
+    }
+    
+	aspect base {
+		rgb agentColor <- rgb("green");
+		
+		if (isInterestedInMusic and isInterestedInMakingFriends) {
+			agentColor <- rgb("red");
+		} else if (isInterestedInMusic) {
+			agentColor <- rgb("darkorange");
+		} else if (isInterestedInMakingFriends) {
+			agentColor <- rgb("purple");
+			
+		}
+				
+      	draw circle(1) color: agentColor border: #black;
+      	draw circle(viewDistance) color: agentColor border: #black wireframe: true;
+	}
+	
+	// Plan for achieving the 'lookForguest_rock_fan' intention 
+	plan move intention: lookingForFriends {
+		do wander;
+	}
+	
+	// ------------------ START OF THE NEW PART ------------------
+	
+	// Perception and percieve function
+	// A perception is a function executed at each iteration to update the agent's Belief base, 
+	// to know the changes in its environment (the world, the other agents and itself). 
+	// The agent can perceive other agents up to a fixed distance.
+	
+	// The darkorange agents will stop after they find a music guest_rock_fan.
+	perceive target: guest where (each.isHappy = true and self.isInterestedInMusic and not self.isInterestedInMakingFriends) in: viewDistance {
+        focus id:found_a_new_friendString var:location;
+        ask myself {
+			// Myself: guest_rock_fan
+			// Self: guests
+            do remove_intention(lookingForFriends, true);
+        }
+    }
+	
+	// The red agents will continue wnadering even after they find a music guest_rock_fan.
+	perceive target: guest where (each.isHappy = true and self.isInterestedInMusic and self.isInterestedInMakingFriends) in: viewDistance {
+        focus id:found_a_new_friendString var:location;
+        ask myself {
+            do remove_intention(lookingForFriends, true);
+        }
+    }
+
+	
+	//Ends BDI for setz of rules 
+		
 	// Three (3) personal Traits used for the Guests 
 	
 	float I <- rnd(50)+50.0; // Social (used for Introvert or Extrovert)
@@ -198,11 +273,11 @@ species guest skills:[moving,fipa]
 	//Global reflex that Respond to all FIPA proposes
 	reflex Responding when: (!empty(proposes)) {
 		loop msg over:proposes {
-			if (msg.content[0] = "XXX" and isHappy = false) {
+			if (msg.contents[0] = "XXX" and isHappy = false) {
 				do wander;
 			}
 			
-			else if (msg.content[0] = "XXX") {
+			else if (msg.contents[0] = "XXX") {
 				do wander;
 			}
 		}
@@ -249,6 +324,9 @@ species guest skills:[moving,fipa]
  */
 species guest_rock_fan parent: guest
 {
+	
+	
+	
 	//bool isRaving <- false;
 	rgb color <- #black;
 	
@@ -295,7 +373,7 @@ species guest_rock_fan parent: guest
 
 
 /*
- * guest_moshpit_dancer: know how to dance, only dance in the mosh_pit with..
+ * guest_moshpit_dancer: know how to dance, only dance in the mosh_pit.
  */
 species guest_moshpit_dancer parent: guest
 {
@@ -492,7 +570,6 @@ experiment main type: gui
 	{
 		display map type: opengl 
 		{
-			//species Info_Center;
 			species Stores;
 			species Stage transparency:0.5;
 			species Moshpit transparency:0.5;	
