@@ -1,6 +1,6 @@
 /**
 * Name: Festival Simulation
-* Author: Federico Yuyang 
+* Author: Federico- Yuyang 
 */
 
 
@@ -416,19 +416,7 @@ species guest_moshpit_dancer parent: guest
 species guest_bullies parent:guest control: simple_bdi{
 	bool isHungry <- false update: flip(0.5);
 	bool isThirsty <- false update: flip(0.5);
-	bool isBully <- true;
-	
-	string BullyString <- "Looking for someone to bully";
-    predicate Bully <- new_predicate(BullyString);
-    
-    string ChillString <- "Looking for someone to bully";
-    predicate NotInTheMood <- new_predicate(ChillString);
-    
-	init {
-		if (isExtrovert and isSelfish) {
-			do add_desire(Bully);
-		}
-	}
+	bool isBully <- true;   // not being used  
 	
 	aspect base {
 		rgb agentColor <- rgb("green");
@@ -449,14 +437,6 @@ species guest_bullies parent:guest control: simple_bdi{
 		do wander;
 	}
 	
-	plan IrrigateSomeone intention: Bully {
-		//TODO do something here with FIPA communication
-		//do start_conversation();
-	}
-	
-	plan Chill intention:NotInTheMood {
-		do wander;
-	}
 	
 }
 		
