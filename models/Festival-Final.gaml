@@ -16,40 +16,21 @@ model MusicParty
 	 * 
 	 * Each Guest has 1 set of rules on how to interact with others ** perhaps the switch function could be used here
 	 */
-	
-	
-	/*3 Personal Traits for each one 
-	 * 
-	 * 
-	 * 
-	 */
-	
 
 
 global{
-		//Configuring the values
-	
-	//This 2 lines are used for BDI- so agents have a set of rules to deal with other types
-	 
-    string lookingForFriendsString <- "Looking for an interesting guest_rock_fan";
-    predicate lookingForFriends <- new_predicate(lookingForFriendsString);
-    
-    string found_a_new_friendString <- "Found a guest_rock_fan with music";
-    predicate found_a_new_friend <- new_predicate(found_a_new_friendString);
-    
-    /// End needed for set of rules between types
-    
-	int guest_num<- 50;
+	//Configuring the values  
+	int guest_num<- 10;
 	int InfoCenter_num<-1;
-	int Stage_num<-1;
-	int store_num<-2;
-	int water_num<-2;
-	int stepCounterVariable <- 0 max: 360 update: stepCounterVariable+1; // simulating 360 minutes or 6 hrs
+	int Stage_num<- 2;
+	int store_num<- 2;
+	int water_num<- 2;
 	
-	point InfoCent_Loc <- {50,80};
-	int InfoCenter_sz<- 20;
+	// Interval for changing Stage shows
+	int TimeInterval <- 60;
 	
-	point Stage_Loc <- {80,50};   // Stage
+	//location and size
+	list<point> Stage_Loc <- [{80,50},{20,70}];   // Stage
 	int Stage_sz <- 20; // stage size
 	int Stage_area<- 20; // the area that stage covers	
 	
@@ -61,11 +42,16 @@ global{
 	point store_Loc <- {30,10};  //Stores with food
 	point water_Loc <- {20,10};  //Stores with water
 
-	float guestSpeed <- 0.5;
-	point previousLocation <- {50,80};
+	float guestSpeed <- 1.0;
+	point previousLocation <- guest_Loc;
 	
-
+	string lookingForFriendsString <- "Looking for an interesting guest_rock_fan";
+    predicate lookingForFriends <- new_predicate(lookingForFriendsString);
+    
+    string found_a_new_friendString <- "Found a guest_rock_fan with music";
+    predicate found_a_new_friend <- new_predicate(found_a_new_friendString);
 	
+	//global init
 	init 
 	{
 		create guest number: guest_num
@@ -78,12 +64,12 @@ global{
 		{location <- guest_Loc;}
 		
 		create guest_bullies number: 1
-		{location <- guest_Loc;}
+		{location <- {rnd(100), rnd(100)};}
 		
 		create guest_drunk number: 1
-		{location <- guest_Loc;}
+		{location <- {rnd(100), rnd(100)};}
 		
-		create Stores number: store_num
+		create Store number: store_num
 		{location <- store_Loc;}
 		
 		create Water number: water_num
@@ -92,33 +78,83 @@ global{
 		create Moshpit number: 1
 		{location <- moshpit_Loc;}
 		
+		int i <- 0;
 		create Stage number: Stage_num
-		{location <- Stage_Loc;}
-
-		
+		{	location <- Stage_Loc[i];
+			i <- i+1;
+		}
 			}
 
-		}
+}
+
 
 //////////////////////////////////////////Species below//////////////////////////////////
 /*We have used a global Guest species, and used simple_bdi for making friends  */
 
-
 species guest skills:[moving,fipa] control: simple_bdi {
 	// Begin set of rules using  BDI to make friends according to other types #
-	 int viewDistance <- 10;
+	int viewDistance <- 10;
 	bool isInterestedInMusic <- flip(0.5);
-	bool isInterestedInMakingFriends <- flip(0.5);
+	bool isInterestedInMakingFriends <- false;
 	
+	// guest preference parameters
+	list<float> values <- [];
+    float mySpeed <- guestSpeed;
+    bool valuesReceived <- false;
+    list<list<float>> stageValues <- [];
+    list<float> utilityPerStage <- [0.0, 0.0];
+	
+	// Three (3) personal Traits used for the Guests 
+	float I <- rnd(50)+50.0; // Social (used for Introvert or Extrovert)
+	float G <- rnd(50)+50.0; // Genorisity Used for selfish or generous
+	float E <- rnd(50)+50.0; // Emotional or Not Emotional 
+	
+	//other status parameters
+	float Happiness <- rnd(50)+50.0;	// We are measuring this value according to agents interactions 
+	float energy <- 100.0 max 100.0; // It will decrease every second and restock after drinking or eating
+	float drunkness <- 0.0; // It will decrease every second and restock after drinking or eating  
+
+	// Base bool values ofr personality Traits 
+	bool isIntrovert <- false;
+	bool isExtrovert <- false;
+	bool isGenerous <- false;
+	bool isSelfish <- false;
+	bool isEmotional <- false;
+	bool isHappy <- false;
+	
+	// To flip decision on whether eating or drinking to get more energy and move
+	bool flippingFoodDrinkVariable <- true update: flip(0.5);	
+	
+	rgb color;
+	
+	building target<- nil;
+	
+	//init
 	init {
-		if (isInterestedInMusic) {
+		// Update personality: To see if an agent is introverted, extrovert, generous, selfish, unHappy or happy...
+		if (I < 60) {isIntrovert <- true;}
+		if (I > 75) {
+			isExtrovert <- true; 
+			isInterestedInMakingFriends <- true;}
+		if (G > 75) {isGenerous <- true;}
+		if (G < 74) {isSelfish <- true;}
+		if (E > 74) {isEmotional <- true;}
+		if (Happiness > 70) {isHappy <- true;}
+		if (Happiness < 20) {isHappy <- false;}
+		
+		if (isInterestedInMakingFriends) {
 			// At this moment, the intention list is empty. So, the first item in the desire list will be added to the intention list.
 			// In other words, here, the first intention is equal to the first desire--lookingForFriends.
         	do add_desire(lookingForFriends);
         }
+     
+        //init preference value
+        loop times: 6  {values << rnd(100.0)/10.0;}	
+
     }
     
-	aspect base {
+    //visual parameters
+	aspect default {
 		rgb agentColor <- rgb("green");
 		
 		if (isInterestedInMusic and isInterestedInMakingFriends) {
@@ -131,20 +167,12 @@ species guest skills:[moving,fipa] control: simple_bdi {
 		}
 				
       	draw circle(1) color: agentColor border: #black;
-      	draw circle(viewDistance) color: agentColor border: #black wireframe: true;
+      	//draw name at: location + {1,1} color: #black font: font('Default', 10, #bold);
+      	//draw circle(viewDistance) color: agentColor border: #pink wireframe: true;
 	}
-	
-	// Plan for achieving the 'lookForguest_rock_fan' intention 
-	plan move intention: lookingForFriends {
-		do wander;
-	}
-	
-	// ------------------ START OF THE NEW PART ------------------
-	
-	// Perception and percieve function
-	// A perception is a function executed at each iteration to update the agent's Belief base, 
-	// to know the changes in its environment (the world, the other agents and itself). 
-	// The agent can perceive other agents up to a fixed distance.
+			
+	//BDI function
+	//agents have a set of rules to deal with other types 
 	
 	// The darkorange agents will stop after they find a music guest_rock_fan.
 	perceive target: guest where (each.isHappy = true and self.isInterestedInMusic and not self.isInterestedInMakingFriends) in: viewDistance {
@@ -156,53 +184,79 @@ species guest skills:[moving,fipa] control: simple_bdi {
         }
     }
 	
-	// The red agents will continue wnadering even after they find a music guest_rock_fan.
+	// The red agents will continue wandering even after they find a music guest_rock_fan.
 	perceive target: guest where (each.isHappy = true and self.isInterestedInMusic and self.isInterestedInMakingFriends) in: viewDistance {
         focus id:found_a_new_friendString var:location;
         ask myself {
-            do remove_intention(lookingForFriends, true);
+            do remove_intention(lookingForFriends, false);
         }
     }
-
-	
-	//Ends BDI for setz of rules 
-		
-	// Three (3) personal Traits used for the Guests 
-	
-	float I <- rnd(50)+50.0; // Social (used for Introvert or Extrovert)
-	float G <- rnd(50)+50.0; // Genorisity Used for selfish or generous
-	float E <- rnd(50)+50.0; // Emotional or Not Emotional 
-	
-	float Happiness <- rnd(50)+50.0;	// We are measuring this value according to agents interactions 
-	float energy <- 100.0 max 100.0; // It will decrease every second and restock after drinking or eating
-	float drunkness <- 0.0; // It will decrease every second and restock after drinking or eating  
-	//float thirst<- rnd(50)+50.0;   // To have them Drink or not 
-	//float hunger<- rnd(50)+50.0;	// Maybe not needed 
-
-	// Base values ofr personality Traits 
-	bool isIntrovert <- false;
-	bool isExtrovert <- false;
-	bool isGenerous <- false;
-	bool isSelfish <- false;
-	bool isHappy <- false;
-	bool isNotHappy <- false;
-	
-	// To flip decision on whether eating or drinking to get more energy and move
-	bool flippingFoodDrinkVariable <- true update: flip(0.5);
-	
-	
-	rgb color<- #red;
-	
-	building target<- nil;
-	
-	aspect default
-	{
-		draw sphere(2) at: location color:color;
-		draw name at: location + {1,1} color: #black font: font('Default', 10, #bold);
-		
+    
+    // Plan for achieving the 'lookForFriends' intention 
+	plan lookForFriend intention: lookingForFriends {
+		target <- nil;
 	}
 	
 	
+	//Ends BDI for setz of rules 
+	
+    predicate preferredStage <- new_predicate('has a preferred stage');
+    //choosing preferred stage
+    reflex getStageInformation when: time mod TimeInterval = 0 {
+    	stageValues <- [];
+    	//do inform with:(message: message(a), contents: ["Send me values"]);
+        do start_conversation with:(to:: list(Stage), protocol:: 'fipa-request', performative:: 'inform', contents:: ['Send Values']);
+        //write name + ": Let me know the stage attribute values!";       
+     }
+     
+     reflex ChooseStage when: valuesReceived {
+        valuesReceived <- false;
+        utilityPerStage <- [0.0, 0.0];
+        
+        //write name + ":" + length(stageValues);
+        // loop for calculating utility values
+        loop i from: 0 to: Stage_num - 1 {   // for every Stage
+            loop j from: 0 to: length(stageValues) - 1 {    // for every stage attribute value
+                list<float> currentStageValues <- stageValues[i];
+                utilityPerStage[i] <- utilityPerStage[i] + (currentStageValues[j] * values[j]);
+            }
+            //stageColors << Stage[i].color;
+        }
+       
+       	// choose max utility and its index
+        float maxValue <- max(utilityPerStage);
+        int maxIndex <- 0;       
+        loop k from:0 to: length(utilityPerStage) - 1 {
+        	if(maxValue = utilityPerStage[k]) {
+        		maxIndex <- k;
+        	}
+        }       
+        target.location <- Stage_Loc[maxIndex];
+        //color <- stageColors[maxIndex];
+        //write name + ": likes to enjoy the show in Stage  " + maxIndex + " now.";
+     }
+     
+     reflex receiveValues when: (!empty(informs)) {
+     	loop msg over: informs {
+            stageValues << msg.contents[0];
+        }
+        valuesReceived <- true;
+        informs <- [];
+     }
+ 
+ // go to target if any    
+	reflex Wander when: target=nil
+	{
+		do wander;
+		//color<- #purple;
+		Happiness <- Happiness + rnd(-5,5);
+	}
+	
+	//Move towards target
+	reflex moveToTarget when: target!=nil
+	{
+		do goto target:target.location speed:mySpeed;
+	} 		
 	
 /*All the guests are given 100 % of energy, the concert last 6 hrs, 
  * and depending of their activities they lose energy levels by the minute. 
@@ -212,7 +266,7 @@ species guest skills:[moving,fipa] control: simple_bdi {
  
 	reflex updateEnergyAndDrunkness
 	{
-	    if location distance_to Stage_Loc < Stage_area
+	    if location distance_to any(Stage_Loc) < Stage_area
 	    {
 	      energy <- energy - 0.5 * 2;  // reduces by a factor of 2x
 	    }
@@ -230,44 +284,30 @@ species guest skills:[moving,fipa] control: simple_bdi {
  /* This reflex prints out the current energy level of each guest to the console
  * This could be a readable value together with happiness.
  */ 
-
-   reflex fromToLoop { // Note:this is fixed
-    	//write "Time elapsed: " + stepCounterVariable + " minutes, and the energy level of " + name + " is " + energy + "%" ;
-    } 
-
-
-	reflex restockEnergy // when energy level is low
-	{
-	  previousLocation  <- location;  // store current location as previous location
-	
-	  if (energy < 20  and flippingFoodDrinkVariable)  //50% prob to get drink
-	  {
-	    do goto target:water_Loc speed: guestSpeed;
-	    energy <- energy + 1;
-	    drunkness <- drunkness + 1 ;
-	    write name + " drunk, level of drunkness of " + drunkness +" %" + " and level of energy of: " + energy + " % ";
-	    do goto target: previousLocation speed: guestSpeed;  // go back to previous location
-	  }
-	  else if (energy < 20)   // get food at store
-	  {
-	    do goto target: store_Loc speed: guestSpeed;
-	    energy <- energy + 5;
-	    write name + " ate, level of drunkness of " + drunkness +" %" + " and level of energy of: " + energy + " % ";
-	    do goto target: previousLocation speed: guestSpeed;  // go back to previous location
-	  }
-	
-	  //do goto target: previousLocation speed: guestSpeed;  // go back to previous location
+	reflex restoreEnergy // when energy level is low
+	{	
+	  	if (energy < 20 and flippingFoodDrinkVariable) {
+	  		target.location <- water_Loc;
+	  		do remove_intention(lookingForFriends, true);
+	  	} 
+	  	else if (energy < 20) {
+	  		target.location <- store_Loc;
+	  		do remove_intention(lookingForFriends, true);
+	  	} 
+	  	//write name + " drunk, level of drunkness of " + drunkness +" %" + " and level of energy of: " + energy + " % ";
+	  	
+	  	if location distance_to any(Store) < 5.0  {energy <- 100.0;}
+	  	if location distance_to any(Water) < 4.0  {drunkness <- drunkness + 1.0;}
 	}
 	
-	// Personality Values 
-	reflex updatePersonality{
-		// To see if an agent is introverted, extrovert, generous, selfish, unHappy or happy...
-		if (I < 74) {isIntrovert <- true;}
-		if (I > 75) {isExtrovert <- true;}
-		if (G > 75) {isGenerous <- true;}
-		if (G < 74) {isSelfish <- true;}
-		if (Happiness > 70) {isHappy <- true;}
-		if (Happiness < 20) {isHappy <- false;} 
+	reflex SpeedUpdate 
+	{
+		if energy < 30 {mySpeed <- 3.0;}
+		if energy < 10 {mySpeed <- 4.0;}
+		if drunkness > 20 {mySpeed <- 1.5;}
+		if energy < 30 {mySpeed <- 3.0;}
+		if energy < 30 {mySpeed <- 3.0;}		
+		if energy < 30 {mySpeed <- 3.0;}		
 	}
 	
 	//Global reflex that Respond to all FIPA proposes
@@ -286,35 +326,19 @@ species guest skills:[moving,fipa] control: simple_bdi {
 	
 	// First Place where They hangout 
 	reflex rave when: isHappy {
-		do goto target:Stage_Loc speed: guestSpeed+1;
+		do goto target:one_of(Stage_Loc) speed: mySpeed+1;
 		//previousLocation <- location;
-		write name + "is raving and going to stage!";
+		//write name + "is raving and going to stage!";
 	}
 	
 	// Second Place where They hangout 
 	reflex moshpit when: isHappy and isExtrovert {
 		//TODO: add conditions that guest will choose between the two places, like invited by dancer etc
-		do goto target:moshpit_Loc speed: guestSpeed+2;
+		do goto target:moshpit_Loc speed: mySpeed+2;
 		location <- moshpit_Loc;
 		//write name + "is going to moshipit!";	
 		}
-		
-	// third Place where They hangout is the stores  
-	
-	
-	reflex Wander when: target=nil
-	{
-		do wander;
-		color<- #purple;
-		Happiness <- Happiness + rnd(-5,5);
-	}
-	
-	//Move towards target
-	reflex moveToTarget when: target!=nil
-	{
-		do goto target:target.location speed:guestSpeed;
-	} 	
-	
+
 	 
 }
 
@@ -324,8 +348,7 @@ species guest skills:[moving,fipa] control: simple_bdi {
  */
 species guest_rock_fan parent: guest
 {
-	
-	
+
 	
 	//bool isRaving <- false;
 	rgb color <- #black;
@@ -365,7 +388,7 @@ species guest_rock_fan parent: guest
 	}
 	
 	action getDrunk{
-		do goto target:one_of(water_Loc) speed:guestSpeed;
+		do goto target:one_of(water_Loc) speed:mySpeed;
 		drunkness <- drunkness + 10;
 	}
 	
@@ -473,44 +496,15 @@ species building
 	bool sells_water<- false;	
 } 
 
-/* InfoCenter answers question with  information */
-species Info_Center parent: building	
-{
-	list<Stores> Storess<- (Stores at_distance 1000);
-	list<Water> Waters<- (Water at_distance 1000);
-	
-	bool hasLocations <- false;
-	
-	reflex listStoreLocations when: hasLocations = false
-	{
-		ask Storess
-		{
-			write "Food store at:" + location; 
-		}	
-		ask Waters
-		{
-			write "Drink store at:" + location; 
-		}
-		
-		hasLocations <- true;
-	}
-	
-	aspect default
-	{
-		draw cube(6) at: location color: #lightgreen;
-		//draw "Info center";
-	}
-	
-}
  
-species Stores parent: building
+species Store parent: building
 {
 	bool sells_food <- true;
 	
 	aspect default
 	{
 		draw pyramid(6) at: location color: #green;
-		draw "Store" at:location+{5,5} color:#black;
+		draw "Store" at:location+{3,3} color:#black;
 	}
 }
  
@@ -524,12 +518,38 @@ species Water parent: building
 	}
 }
 
-species Stage parent: building
+species Stage parent: building skills:[fipa]
 {
+	list<float> values <- [];
+	rgb color;
+	
+	init {
+		loop times: 6 {
+			values << rnd(100.0)/10.0;
+		}
+	}
+	
+	reflex reAssignValues when: time mod TimeInterval = 0 {  //every 60 loops reassign the values
+		values <- [];
+		loop times: 6 {
+			values << rnd(100.0)/10.0;
+		}
+		//write "Stage: Change the values" ;
+	}
+	
+	reflex sendValues when: !empty(informs) {
+		//write name + ": Message received, sending values to the guests";
+		loop msg over: informs {
+			//do start_conversation with:(to::msg.sender,protocol:: 'fipa-request', performative:: 'inform',contents:: [values]);
+			do inform with:(message:msg, contents:[values]);
+		}
+		informs <- [];
+	}
+	
 	aspect default
 	{
 		draw square(Stage_sz) wireframe:true at: location color: #green;
-		draw "Stage" at:location color:#black font: font('Default', 20, #bold);
+		draw name at:location color:#black font: font('Default', 20, #bold);
 	}
 }
 
@@ -550,8 +570,8 @@ experiment main type: gui
 	{
 		display map type: opengl 
 		{
-			species Stores;
-			species Stage transparency:0.5;
+			species Store;
+			species Stage ;
 			species Moshpit transparency:0.5;	
 			species Water;	
 							
@@ -562,7 +582,7 @@ experiment main type: gui
 			species guest_bullies;	
 			
 			graphics "clock1" {
-        		draw "Tim Elasped:" + stepCounterVariable + "minutes" at:{1,3} color: #black font: font('Default', 15, #bold);
+        		draw "Tim Elasped:" + time + "minutes" at:{1,3} color: #black font: font('Default', 15, #bold);
         	}
 		}
 
