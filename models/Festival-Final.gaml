@@ -50,6 +50,9 @@ global{
     
     string found_a_new_friendString <- "Found a guest_rock_fan with music";
     predicate found_a_new_friend <- new_predicate(found_a_new_friendString);
+    
+    predicate knowAboutFriend <- new_predicate("want to know about friends found");
+	predicate AddToList <- new_predicate("add to friend list");
 	
 	//global init
 	init 
@@ -171,9 +174,7 @@ species guest skills:[moving,fipa] control: simple_bdi {
       	//draw circle(viewDistance) color: agentColor border: #pink wireframe: true;
 	}
 			
-	//BDI function
-	//agents have a set of rules to deal with other types 
-	
+	//BDI function	
 	// The darkorange agents will stop after they find a music guest_rock_fan.
 	perceive target: guest where (each.isHappy = true and self.isInterestedInMusic and not self.isInterestedInMakingFriends) in: viewDistance {
         focus id:found_a_new_friendString var:location;
@@ -192,11 +193,30 @@ species guest skills:[moving,fipa] control: simple_bdi {
         }
     }
     
+    //agents have a set of rules to deal with other types 
+	rule belief:found_a_new_friend new_desire:knowAboutFriend strength:2.0;
+	rule belief:knowAboutFriend new_desire:AddToList strength:3.0;
+    
     // Plan for achieving the 'lookForFriends' intention 
 	plan lookForFriend intention: lookingForFriends {
-		target <- nil;
+		do wander; //the agent will wander
 	}
 	
+	plan getTOKnowABoutFriend intention:knowAboutFriend{
+		//
+		list<point> possibleFriends <- get_beliefs_with_name(found_a_new_friendString) collect (point(get_predicate(mental_state (each)).values));
+		
+		if !empty(possibleFriends){ //choose a nearest agent
+			target.location <- (possibleFriends with_min_of (each distance_to self)).location;
+			//do add_desire(AddToList);
+		}
+	}
+	plan AddToFriendList intention:AddToList{
+		//TODO should add the friend to own friendlist 
+		
+		
+		do remove_intention(AddToList, true);
+	}
 	
 	//Ends BDI for setz of rules 
 	
@@ -408,6 +428,7 @@ species guest_moshpit_dancer parent: guest
 	
 	reflex Dance when: energy > 25{
 		color <- #lime;
+		do wander;
 		do goto target:moshpit_Loc speed:guestSpeed+2;
 		Happiness <- Happiness + rnd(2); 
 	}
@@ -436,7 +457,7 @@ species guest_moshpit_dancer parent: guest
 }
 /*New species added here  */
 	
-species guest_bullies parent:guest control: simple_bdi{
+species guest_bullies parent:guest{
 	bool isHungry <- false update: flip(0.5);
 	bool isThirsty <- false update: flip(0.5);
 	bool isBully <- true;   // not being used  
