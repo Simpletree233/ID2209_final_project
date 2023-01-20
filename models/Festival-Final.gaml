@@ -526,43 +526,41 @@ species guest_bullies parent:guest{
 }
 		
 species guest_drunk parent:guest{
-	bool isHungry <- false update: flip(0.5);
-	bool isThirsty <- false update: flip(0.5);
 	
+	predicate Find <- new_predicate("find drinks");
+	predicate Drink <- new_predicate("drink");
+	predicate hasDrink <- new_predicate("has drink");
+	predicate offerDrink <- new_predicate("offer drink");
 	
-	// ------------------ They Just move around ------------------
-	reflex move {
-		do wander;
-	}
-	
-	predicate Find <- new_predicate("find someone to bully");
-	predicate Bully <- new_predicate("bully");
-	
-	perceive target: list(guest) where (each.isHappy = true and self.isHappy=false and self.isEmotional) in: viewDistance {
-        focus id:"find someone to bully" var:location;
+	perceive target: Water where (each.sells_water = true) in: viewDistance+10 {
+        focus id:"find drinks" var:location;
+    }
+    
+	perceive target: guest where (each.drunkness < 50) in: viewDistance {
+        focus id:"offer drink" var:location;
     }
 	
-	rule belief:Find new_desire:Bully strength:5.0;
+	rule belief:Find new_desire:Drink strength:5.0;
+    rule belief:hasDrink new_desire:offerDrink strength:3.0;
     
-	plan BeatSomeone intention: Bully {
+	plan GetSomeDrink intention: Drink {
 		list<point> points <- get_beliefs(Find) collect (point(get_predicate(mental_state (each)).values["location_value"]));
-		point Target <- (points with_min_of (each distance_to self)).location;
-		//go to the guy
-		do goto target:Target speed:mySpeed+3;
-		//beat him
-		if energy > 25 {
-			ask guest at_distance 2 {
-				if (self.drunkness > 10){
-					write(self.name + "is bullied by"+ name);
-					do die;
-				}
-			Target<-nil;
-			}
-		}
-		//consequence
-		do remove_intention(Bully,true);
+
+		do goto target:points[0] speed:mySpeed+5;
+
+		drunkness <- drunkness +10.0;
+
+		do remove_intention(Drink,false);
 		isHappy<-true;
-	}
+		}
+		
+	plan offerSomeDrink intention: offerDrink {
+		ask guest at_distance 2 {
+			self.drunkness <- self.drunkness + 5;
+		}
+		Happiness <- Happiness +3.0;
+		do remove_intention(offerDrink, true);
+		} 
 }	
 
 
