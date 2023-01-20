@@ -8,8 +8,8 @@ model MusicParty
 
 	/*There are 5 types of guests
 	 * 
-	 * 1-guest_rock_fan
-	 * 2-guest_moshpit_dancer
+	 * 1-guest
+	 * 2-guest_rock_fan
 	 * 3-guest_moshpit_dancer
 	 * 4-guest_drunk
 	 * 5-guest_bullies
@@ -20,8 +20,11 @@ model MusicParty
 
 global{
 	//Configuring the values  
-	int guest_num<- 10;
-	int InfoCenter_num<-1;
+	int guest_num<- 20;
+	int rock_fan_num <-15;
+	int dancer <- 8;
+	int drunk <- 5;
+	int bully <- 2;
 	int Stage_num<- 2;
 	int store_num<- 2;
 	int water_num<- 2;
@@ -40,7 +43,7 @@ global{
 	
 	point guest_Loc <- {80,40};  //Guest spawn location
 	point store_Loc <- {30,10};  //Stores with food
-	point water_Loc <- {20,10};  //Stores with water
+	point water_Loc <- {20,10};  //Stores with drink
 
 	float guestSpeed <- 1.0;
 	point previousLocation <- guest_Loc;
@@ -51,8 +54,11 @@ global{
     string found_a_new_friendString <- "Found a guest_rock_fan with music";
     predicate found_a_new_friend <- new_predicate(found_a_new_friendString);
     
-    predicate knowAboutFriend <- new_predicate("want to know about friends found");
+    predicate knowAboutFriend <- new_predicate("know about friend");
 	predicate AddToList <- new_predicate("add to friend list");
+	
+	predicate GetDrunk <- new_predicate("going to get drunk");
+	predicate KickSomeonesA <- new_predicate("going to mess up with someone");
 	
 	//global init
 	init 
@@ -60,16 +66,16 @@ global{
 		create guest number: guest_num
 		{location <- guest_Loc;}
 		
-		create guest_rock_fan number: 1
+		create guest_rock_fan number: rock_fan_num
 		{location <- guest_Loc;}
 		
-		create guest_moshpit_dancer number: 1
+		create guest_moshpit_dancer number: dancer
 		{location <- guest_Loc;}
 		
-		create guest_bullies number: 1
+		create guest_bullies number: bully
 		{location <- {rnd(100), rnd(100)};}
 		
-		create guest_drunk number: 1
+		create guest_drunk number: drunk
 		{location <- {rnd(100), rnd(100)};}
 		
 		create Store number: store_num
@@ -96,11 +102,11 @@ global{
 
 species guest skills:[moving,fipa] control: simple_bdi {
 	// Begin set of rules using  BDI to make friends according to other types #
-	int viewDistance <- 10;
+	int viewDistance <- 5;
 	bool isInterestedInMusic <- flip(0.5);
-	bool isInterestedInMakingFriends <- false;
+	bool isInterestedInMakingFriends <- false;  //determined by if extroverted 
 	
-	// guest preference parameters
+	// guest preference parameters for choosing favorite stage
 	list<float> values <- [];
     float mySpeed <- guestSpeed;
     bool valuesReceived <- false;
@@ -124,6 +130,9 @@ species guest skills:[moving,fipa] control: simple_bdi {
 	bool isSelfish <- false;
 	bool isEmotional <- false;
 	bool isHappy <- false;
+	
+	//Friend list
+	list<string> friendlist <- [];
 	
 	// To flip decision on whether eating or drinking to get more energy and move
 	bool flippingFoodDrinkVariable <- true update: flip(0.5);	
@@ -161,11 +170,11 @@ species guest skills:[moving,fipa] control: simple_bdi {
 		rgb agentColor <- rgb("green");
 		
 		if (isInterestedInMusic and isInterestedInMakingFriends) {
-			agentColor <- rgb("red");
+			agentColor <- rgb("limegreen");
 		} else if (isInterestedInMusic) {
-			agentColor <- rgb("darkorange");
+			agentColor <- rgb("pink");
 		} else if (isInterestedInMakingFriends) {
-			agentColor <- rgb("purple");
+			agentColor <- rgb("yellow");
 			
 		}
 				
@@ -174,53 +183,68 @@ species guest skills:[moving,fipa] control: simple_bdi {
       	//draw circle(viewDistance) color: agentColor border: #pink wireframe: true;
 	}
 			
+			
 	//BDI function	
-	// The darkorange agents will stop after they find a music guest_rock_fan.
-	perceive target: guest where (each.isHappy = true and self.isInterestedInMusic and not self.isInterestedInMakingFriends) in: viewDistance {
-        focus id:found_a_new_friendString var:location;
+	// The agents will stop after they find a music guest_rock_fan.
+	perceive target: list(guest_rock_fan)+list(guest) where (each.isHappy = true and self.isInterestedInMusic and not self.isInterestedInMakingFriends) in: viewDistance {
+        focus id:"crowded place found" var:location;
         ask myself {
-			// Myself: guest_rock_fan
-			// Self: guests
             do remove_intention(lookingForFriends, true);
         }
     }
 	
-	// The red agents will continue wandering even after they find a music guest_rock_fan.
-	perceive target: guest where (each.isHappy = true and self.isInterestedInMusic and self.isInterestedInMakingFriends) in: viewDistance {
-        focus id:found_a_new_friendString var:location;
-        ask myself {
-            do remove_intention(lookingForFriends, false);
-        }
+	// The agents will continue wandering even after they find a music guest_rock_fan.
+	perceive target: list(guest_rock_fan)+list(guest) where (each.isHappy = true and self.isInterestedInMusic and self.isInterestedInMakingFriends) in: viewDistance {
+       
+        focus id:found_a_new_friendString var:location ;
+        focus id:"know about friend" var:name;  // know about firend belief
     }
+    
     
     //agents have a set of rules to deal with other types 
 	rule belief:found_a_new_friend new_desire:knowAboutFriend strength:2.0;
 	rule belief:knowAboutFriend new_desire:AddToList strength:3.0;
+    
     
     // Plan for achieving the 'lookForFriends' intention 
 	plan lookForFriend intention: lookingForFriends {
 		do wander; //the agent will wander
 	}
 	
-	plan getTOKnowABoutFriend intention:knowAboutFriend{
-		//
-		list<point> possibleFriends <- get_beliefs_with_name(found_a_new_friendString) collect (point(get_predicate(mental_state (each)).values));
+	plan getToKnowABoutFriend intention:knowAboutFriend{
+		if (self.isExtrovert = false) {do remove_intention(knowAboutFriend,true);}
 		
-		if !empty(possibleFriends){ //choose a nearest agent
-			target.location <- (possibleFriends with_min_of (each distance_to self)).location;
-			//do add_desire(AddToList);
+		list<point> possibleFriends <- get_beliefs_with_name(found_a_new_friendString) collect (point(get_predicate(mental_state (each)).values["location_value"]));
+		//write(name+"possibleFriends: "+possibleFriends);
+		
+		if !empty(possibleFriends) and !(any(possibleFriends) = nil){ //choose a nearest agent
+			point T <- (possibleFriends with_min_of (each distance_to self)).location;
+			//guest a <- possibleFriends with_min_of (each distance_to self);
+			self.Happiness <- self.Happiness + 1.0;
+			//write(name+ "'s nearest friend location: " + T);
 		}
-	}
-	plan AddToFriendList intention:AddToList{
-		//TODO should add the friend to own friendlist 
 		
+		list<string> friendsname <- get_beliefs_with_name("know about friend") collect (string(get_predicate(mental_state (each)).values["name_value"]));
+		//write("firends name: "+friendsname);
 		
-		do remove_intention(AddToList, true);
+		if !empty(friendsname) {
+			loop n over: friendsname {
+				if !(friendlist contains n) {
+					self.friendlist << n;
+					self.Happiness <- self.Happiness + 1.0;
+				}
+			}
+			//write(name +" makes friends with " + friendsname);
+		}
+		friendsname <- [];
+		do remove_intention(knowAboutFriend,true);
 	}
+
 	
 	//Ends BDI for setz of rules 
 	
-    predicate preferredStage <- new_predicate('has a preferred stage');
+    //predicate preferredStage <- new_predicate('has a preferred stage');
+    
     //choosing preferred stage
     reflex getStageInformation when: time mod TimeInterval = 0 {
     	stageValues <- [];
@@ -324,10 +348,7 @@ species guest skills:[moving,fipa] control: simple_bdi {
 	{
 		if energy < 30 {mySpeed <- 3.0;}
 		if energy < 10 {mySpeed <- 4.0;}
-		if drunkness > 20 {mySpeed <- 1.5;}
-		if energy < 30 {mySpeed <- 3.0;}
-		if energy < 30 {mySpeed <- 3.0;}		
-		if energy < 30 {mySpeed <- 3.0;}		
+		if drunkness > 20 {mySpeed <- 1.5;}		
 	}
 	
 	//Global reflex that Respond to all FIPA proposes
@@ -346,21 +367,12 @@ species guest skills:[moving,fipa] control: simple_bdi {
 	
 	// First Place where They hangout 
 	reflex rave when: isHappy {
-		do goto target:one_of(Stage_Loc) speed: mySpeed+1;
+		do goto target:one_of(Stage_Loc,moshpit_Loc) speed: mySpeed+1;
 		//previousLocation <- location;
 		//write name + "is raving and going to stage!";
 	}
-	
-	// Second Place where They hangout 
-	reflex moshpit when: isHappy and isExtrovert {
-		//TODO: add conditions that guest will choose between the two places, like invited by dancer etc
-		do goto target:moshpit_Loc speed: mySpeed+2;
-		location <- moshpit_Loc;
-		//write name + "is going to moshipit!";	
-		}
-
-	 
 }
+
 
 /*
  * Species guest_rock_fan
@@ -384,23 +396,29 @@ species guest_rock_fan parent: guest
 		color <- rgb(Happiness,0,0); // Hapiness level indicates the color
 	}
 
-	// when at the stage and happy, invite guest_moshpit_dancer to dance
-	reflex inviteToDance when: isHappy and (location distance_to(moshpit_Loc) < moshpit_area){
-		//// TODO: FIPA to ask guest_moshpit_dancer
-		write "RockFan" + name + " invites nearby dancer to dancer";
+	plan lookForFriend intention: lookingForFriends {
+		do wander; //the agent will wander
+		if isHappy and (location distance_to(moshpit_Loc) < moshpit_area){
+			do inviteToDance;
+			}
+	}
+	
+	// invite dancer to dance
+	action inviteToDance {
+		//write "RockFan" + name + " invites nearby dancer to dancer";
 		do start_conversation with:(to:: list(guest_moshpit_dancer), protocol:: 'fipa-propose', performative:: 'propose', contents:: ['Go dancing?']);
 	}
 	
 	// when receive msg, read and update happiness
 	reflex ReadMsg when: (!empty(agrees)){
 		loop msg over: agrees {
-			if (msg.contents[0] = 'Yes!' and isHappy = true){
-				write "RockFan" + name + " 's proposal is accepted. He is happy.";
-				Happiness <- 255.0;
+			if (msg.contents[0] = 'Yes!' and isHappy = true and isEmotional = true){
+				write name + " 's proposal is accepted. He is happy.";
+				Happiness <- 100.0;
 			}
 			if (msg.contents[0] = 'No!' and isHappy = false){
-				//TODO: what will sad rockfan do?
-				write "RockFan" + name + " 's proposal got rejected. He is sad."; 
+				//what will sad rockfan do?
+				write name + " 's proposal got rejected. He is sad."; 
 				Happiness <- 0.0;
 				do getDrunk;
 			}
@@ -426,21 +444,32 @@ species guest_moshpit_dancer parent: guest
 		draw name at: location + {1,1} color: #black font: font('Default', 10, #bold);
 	}
 	
-	reflex Dance when: energy > 25{
+	predicate FindDance <- new_predicate("find places to go dancing");
+	predicate GoDance <- new_predicate("go dancing");
+	
+	perceive target:Moshpit where (self.isInterestedInMusic) in: viewDistance+10 {
+        focus id:"go dancing" var:location ;
+    }
+	
+	rule belief:FindDance new_desire:GoDance strength:5.0;
+    
+	plan GoDancing intention: GoDance {
+		if energy > 25 {
+			do Dance;
+		}
+	}
+	
+	action Dance{
 		color <- #lime;
-		do wander;
 		do goto target:moshpit_Loc speed:guestSpeed+2;
 		Happiness <- Happiness + rnd(2); 
 	}
 	
 	reflex rave when: energy > 25 and isHappy{
-		////
 		color <- #limegreen;
 	}
 	
 	reflex RespondToInvitation when: (!empty(proposes)) and (location distance_to(moshpit_Loc) < moshpit_area){  
-		// TODO:read the FIPA invitation and respond
-		// TODO:enter fever mode and dance
 		loop msg over: proposes {
 			if (msg.contents[0] = 'Go dancing?' and energy > 25){
 				Happiness <- 200.0;
@@ -455,56 +484,84 @@ species guest_moshpit_dancer parent: guest
         proposes <- [];
 	}
 }
-/*New species added here  */
+
+
+/*New species bully here  */
 	
 species guest_bullies parent:guest{
 	bool isHungry <- false update: flip(0.5);
-	bool isThirsty <- false update: flip(0.5);
-	bool isBully <- true;   // not being used  
+	bool isAngry <- false update: flip(0.5);
+
 	
-	aspect base {
-		rgb agentColor <- rgb("green");
-		
-		if (isHungry and isThirsty) {
-			agentColor <- rgb("red");
-		} else if (isThirsty) {
-			agentColor <- rgb("darkorange");
-		} else if (isHungry) {
-			agentColor <- rgb("purple");
+	predicate Find <- new_predicate("find someone to bully");
+	predicate Bully <- new_predicate("bully");
+	
+	perceive target: list(guest_drunk)+list(guest) where (each.isHappy = true and self.isHappy=false and self.isHungry and self.isEmotional) in: viewDistance {
+        focus id:"find someone to bully" var:location;
+        myself.isAngry <- true;
+    }
+	
+	rule belief:Find new_desire:Bully strength:5.0;
+    
+	plan BeatSomeone intention: Bully {
+		list<point> points <- get_beliefs(Find) collect (point(get_predicate(mental_state (each)).values["location_value"]));
+		point Target <- (points with_min_of (each distance_to self)).location;
+		//go to the guy
+		do goto target:Target speed:mySpeed+3;
+		//beat him
+		if energy > 25 {
+			ask guest at_distance 2 {
+				if (self.drunkness > 10){
+					write(self.name + "is bullied by"+ name);
+					do die;
+				}
+			Target<-nil;
+			}
 		}
-		
-		draw circle(1) color: agentColor;
+		//consequence
+		do remove_intention(Bully,true);
+		isAngry <-false;
+		isHappy<-true;
 	}
-	
-	// ------------------ They Just move around ------------------
-	reflex move {
-		do wander;
-	}
-	
-	
 }
 		
-species guest_drunk skills:[moving]{
+species guest_drunk parent:guest{
 	bool isHungry <- false update: flip(0.5);
 	bool isThirsty <- false update: flip(0.5);
 	
-	aspect base {
-		rgb agentColor <- rgb("green"); //<- rgb(Happiness,0,0);
-		
-		if (isHungry and isThirsty) {
-			agentColor <- rgb("red");
-		} else if (isThirsty) {
-			agentColor <- rgb("darkorange");
-		} else if (isHungry) {
-			agentColor <- rgb("purple");
-		}
-		
-		draw circle(1) color: agentColor;
-	}
 	
 	// ------------------ They Just move around ------------------
 	reflex move {
 		do wander;
+	}
+	
+	predicate Find <- new_predicate("find someone to bully");
+	predicate Bully <- new_predicate("bully");
+	
+	perceive target: list(guest) where (each.isHappy = true and self.isHappy=false and self.isEmotional) in: viewDistance {
+        focus id:"find someone to bully" var:location;
+    }
+	
+	rule belief:Find new_desire:Bully strength:5.0;
+    
+	plan BeatSomeone intention: Bully {
+		list<point> points <- get_beliefs(Find) collect (point(get_predicate(mental_state (each)).values["location_value"]));
+		point Target <- (points with_min_of (each distance_to self)).location;
+		//go to the guy
+		do goto target:Target speed:mySpeed+3;
+		//beat him
+		if energy > 25 {
+			ask guest at_distance 2 {
+				if (self.drunkness > 10){
+					write(self.name + "is bullied by"+ name);
+					do die;
+				}
+			Target<-nil;
+			}
+		}
+		//consequence
+		do remove_intention(Bully,true);
+		isHappy<-true;
 	}
 }	
 
@@ -609,8 +666,8 @@ experiment main type: gui
 
     	display "my_display" {
         	chart "Happiness level histogram" type: histogram {
-        		datalist (distribution_of(guest collect each.Happiness,25,0,255) at "legend") 
-            	value:(distribution_of(guest collect each.Happiness,25,0,255) at "values");
+        		datalist (distribution_of(list(guest)+list(guest_rock_fan)+list(guest_moshpit_dancer)+list(guest_drunk)+list(guest_bullies) collect each.Happiness,40,0,200) at "legend") 
+            	value:(distribution_of(list(guest) collect each.Happiness,20,0,200) at "values");
             	}
         	}
 
